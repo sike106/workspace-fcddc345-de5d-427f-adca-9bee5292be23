@@ -3459,6 +3459,31 @@ function Practice({ user }: { user: User | null }) {
     }
   }
 
+  const getSolveOptionClass = (index: number, correctIndex: string) => {
+    if (practiceSolveShowResult) {
+      if (index.toString() === correctIndex) {
+        return 'bg-green-500/20 border border-green-500'
+      }
+      if (practiceSolveSelectedAnswer === index) {
+        return 'bg-red-500/20 border border-red-500'
+      }
+      return 'bg-slate-700/30 border border-slate-600'
+    }
+    return practiceSolveSelectedAnswer === index
+      ? 'bg-blue-500/20 border border-blue-500'
+      : 'bg-slate-700/30 border border-slate-600 hover:border-slate-500'
+  }
+
+  const getSolveBadgeClass = (index: number, correctIndex: string) => {
+    if (practiceSolveShowResult && index.toString() === correctIndex) {
+      return 'bg-green-500 text-white'
+    }
+    if (practiceSolveSelectedAnswer === index) {
+      return 'bg-blue-500 text-white'
+    }
+    return 'bg-slate-600'
+  }
+
   if (practiceSolveMode) {
     const solveQuestion = practiceSelectedQuestions[practiceSolveIndex]
     const solveOptions = solveQuestion ? parseQuestionOptions(solveQuestion.options) : []
@@ -3516,25 +3541,9 @@ function Practice({ user }: { user: User | null }) {
                     key={i}
                     onClick={() => setPracticeSolveSelectedAnswer(i)}
                     disabled={practiceSolveShowResult}
-                    className={`w-full p-4 rounded-xl text-left transition-all flex items-center gap-3 ${
-                      practiceSolveShowResult
-                        ? i.toString() === solveCorrectAnswerIndex
-                          ? 'bg-green-500/20 border border-green-500'
-                          : practiceSolveSelectedAnswer === i
-                            ? 'bg-red-500/20 border border-red-500'
-                            : 'bg-slate-700/30 border border-slate-600'
-                        : practiceSolveSelectedAnswer === i
-                          ? 'bg-blue-500/20 border border-blue-500'
-                          : 'bg-slate-700/30 border border-slate-600 hover:border-slate-500'
-                    }`}
+                    className={`w-full p-4 rounded-xl text-left transition-all flex items-center gap-3 ${getSolveOptionClass(i, solveCorrectAnswerIndex)}`}
                   >
-                    <span className={`w-8 h-8 rounded-full flex items-center justify-center font-medium ${
-                      practiceSolveShowResult && i.toString() === solveCorrectAnswerIndex
-                        ? 'bg-green-500 text-white'
-                        : practiceSolveSelectedAnswer === i
-                          ? 'bg-blue-500 text-white'
-                          : 'bg-slate-600'
-                    }`}>
+                    <span className={`w-8 h-8 rounded-full flex items-center justify-center font-medium ${getSolveBadgeClass(i, solveCorrectAnswerIndex)}`}>
                       {String.fromCharCode(65 + i)}
                     </span>
                     <MathText text={option} as="span" />
