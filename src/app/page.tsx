@@ -96,6 +96,23 @@ interface RevisionEntry {
   updatedAt: number
 }
 
+interface PracticeSession {
+  id: string
+  subject: string
+  chapter?: string
+  difficulty?: string
+  questions: Question[]
+  createdAt: number
+  updatedAt: number
+}
+
+interface PracticeReview {
+  friendlyMessage: string
+  mistake: string
+  fix: string
+  alternativeApproach: string
+}
+
 interface DoubtItem {
   id: string
   title: string
@@ -3094,10 +3111,232 @@ function Revision({ user }: { user: User | null }) {
 }
 
 // Practice Component
+function Practice({ user }: { user: User | null }) {
+  const PRACTICE_STORAGE_KEY_BASE = 'jee_study_buddy_practice_history_v1'
+  const practiceStorageKey = useMemo(
+    () => `${PRACTICE_STORAGE_KEY_BASE}_${user?.id || 'anon'}`,
+    [user?.id]
+  )
+  const [questions, setQuestions] = useState<Question[]>([])
+  const [currentIndex, setCurrentIndex] = useState(0)
+  const [subject, setSubject] = useState('')
+  const [chapter, setChapter] = useState('')
+  const [difficulty, setDifficulty] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [selectedAnswer, setSelectedAnswer] = useState<string | number | null>(null)
+  const [showResult, setShowResult] = useState(false)
+  const [result, setResult] = useState<any>(null)
+  const [hint, setHint] = useState('')
+  const [showHint, setShowHint] = useState(false)
+  const [questionStartTime, setQuestionStartTime] = useState(Date.now())
+  const [mode] = useState<AIMode>('exam')
+  const [loadNotice, setLoadNotice] = useState('')
+  const [practiceHistory, setPracticeHistory] = useState<PracticeSession[]>([])
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
+  const [review, setReview] = useState<PracticeReview | null>(null)
+  const [reviewLoading, setReviewLoading] = useState(false)
+  const [reviewTab, setReviewTab] = useState<'summary' | 'mistake' | 'alternative'>('summary')
+  const [monitorStats, setMonitorStats] = useState<{ attempted: number; correct: number; accuracy: number; avgTime: number }>({
+    attempted: 0,
+    correct: 0,
+    accuracy: 0,
+    avgTime: 0
+  })
+  const [monitorHistory, setMonitorHistory] = useState<Array<{ isCorrect: boolean; timeTaken: number }>>([])
+  const [practiceSelectedIds, setPracticeSelectedIds] = useState<string[]>([])
+  const [practiceSolveMode, setPracticeSolveMode] = useState(false)
+  const [practiceSolveIndex, setPracticeSolveIndex] = useState(0)
+  const [practiceSolveSelectedAnswer, setPracticeSolveSelectedAnswer] = useState<number | null>(null)
+  const [practiceSolveShowResult, setPracticeSolveShowResult] = useState(false)
+  const [practiceSolveResult, setPracticeSolveResult] = useState<any>(null)
+  const [practiceSolveStartTime, setPracticeSolveStartTime] = useState(Date.now())
+  const [useAiQuestions, setUseAiQuestions] = useState(true)
 
+  const orderedPracticeHistory = [...practiceHistory].sort((a, b) => b.updatedAt - a.updatedAt)
+  const currentQuestion = questions[currentIndex] || null
+  const options = currentQuestion ? parseQuestionOptions(currentQuestion.options) : []
+  const practiceSelectedQuestions = useMemo(() => {
+    if (practiceSelectedIds.length === 0) return []
+    const selectedSet = new Set(practiceSelectedIds)
+    return questions.filter(q => selectedSet.has(q.id))
+  }, [questions, practiceSelectedIds])
 
+  const normalizePracticeSessions = useCallback((raw: any): PracticeSession[] => {
+    if (!Array.isArray(raw)) return []
+    return raw.map((entry: any) => {
+      const createdAt = typeof entry?.createdAt === 'number' ? entry.createdAt : Date.now()
+      const updatedAt = typeof entry?.updatedAt === 'number' ? entry.updatedAt : createdAt
+      return {
+        id: typeof entry?.id === 'string' && entry.id ? entry.id : `ps_${createdAt}_${Math.random().toString(36).slice(2, 8)}`,
+        subject: typeof entry?.subject === 'string' ? entry.subject : '',
+        chapter: typeof entry?.chapter === 'string' ? entry.chapter : '',
+        difficulty: typeof entry?.difficulty === 'string' ? entry.difficulty : '',
+        questions: Array.isArray(entry?.questions) ? entry.questions : [],
+        createdAt,
+        updatedAt
+      } as PracticeSession
+    }).filter((entry: PracticeSession) => entry.questions.length > 0)
+  }, [])
 
+  const saveSession = (list: Question[]) => {
+    const timestamp = Date.now()
+    const newSession: PracticeSession = {
+      id: `ps_${timestamp}_${Math.random().toString(36).slice(2, 8)}`,
+      subject,
+      chapter,
+      difficulty,
+      questions: list,
+      createdAt: timestamp,
+      updatedAt: timestamp
+    }
+    setPracticeHistory(prev => [newSession, ...prev].slice(0, 50))
+    setActiveSessionId(newSession.id)
+  }
 
+  const loadQuestions = async () => {
+    setLoading(true)
+    setLoadNotice('')
+    try {
+      const preferAi = difficulty === 'Advanced' || difficulty === 'Irodov'
+      const allowAi = useAiQuestions || preferAi
+      const data = await api.practice.questions(subject, chapter, difficulty, { allowAi, preferAi })
+      const list = Array.isArray(data?.questions) ? data.questions : Array.isArray(data) ? data : []
+      setQuestions(list)
+      setCurrentIndex(0)
+      setSelectedAnswer(null)
+      setShowResult(false)
+      setResult(null)
+      setHint('')
+      setShowHint(false)
+      setReview(null)
+      setReviewLoading(false)
+      setReviewTab('summary')
+      setMonitorHistory([])
+      setMonitorStats({ attempted: 0, correct: 0, accuracy: 0, avgTime: 0 })
+      setPracticeSelectedIds([])
+      setPracticeSolveMode(false)
+      setPracticeSolveIndex(0)
+      setPracticeSolveSelectedAnswer(null)
+      setPracticeSolveShowResult(false)
+      setPracticeSolveResult(null)
+      setPracticeSolveStartTime(Date.now())
+
+      if (list.length > 0) {
+        saveSession(list)
+      }
+
+      if (data?.source === 'ai') {
+        setLoadNotice('Loaded AI-generated questions for this selection.')
+      } else if (list.length === 0) {
+        setLoadNotice('No questions found for this selection. Try changing filters.')
+      } else if (data?.aiError) {
+        setLoadNotice(`AI fallback failed: ${data.aiError}`)
+      }
+    } catch (err: any) {
+      setLoadNotice(getGuestAiUpgradeMessage(err, 'Failed to load questions. Please try again.'))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const togglePracticeSelected = (id: string) => {
+    setPracticeSelectedIds(prev =>
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    )
+  }
+
+  const selectAllPractice = () => {
+    setPracticeSelectedIds(questions.map(q => q.id))
+  }
+
+  const clearPracticeSelected = () => {
+    setPracticeSelectedIds([])
+  }
+
+  const startPracticeSolve = () => {
+    if (practiceSelectedIds.length === 0) return
+    setPracticeSolveMode(true)
+    setPracticeSolveIndex(0)
+    setPracticeSolveSelectedAnswer(null)
+    setPracticeSolveShowResult(false)
+    setPracticeSolveResult(null)
+    setPracticeSolveStartTime(Date.now())
+  }
+
+  const exitPracticeSolve = () => {
+    setPracticeSolveMode(false)
+    setPracticeSolveIndex(0)
+    setPracticeSolveSelectedAnswer(null)
+    setPracticeSolveShowResult(false)
+    setPracticeSolveResult(null)
+    setPracticeSolveStartTime(Date.now())
+  }
+
+  const selectPracticeSession = (session: PracticeSession) => {
+    setActiveSessionId(session.id)
+    setSubject(session.subject || '')
+    setChapter(session.chapter || '')
+    setDifficulty(session.difficulty || '')
+    setQuestions(session.questions || [])
+    setCurrentIndex(0)
+    setSelectedAnswer(null)
+    setShowResult(false)
+    setResult(null)
+    setHint('')
+    setShowHint(false)
+    setReview(null)
+    setReviewLoading(false)
+    setReviewTab('summary')
+    setPracticeSelectedIds([])
+    setPracticeSolveMode(false)
+  }
+
+  const handleDeletePracticeSession = (sessionId: string) => {
+    setPracticeHistory(prev => {
+      const next = prev.filter(item => item.id !== sessionId)
+      if (sessionId === activeSessionId) {
+        const fallback = next[0]
+        if (fallback) {
+          selectPracticeSession(fallback)
+        } else {
+          setActiveSessionId(null)
+          setQuestions([])
+          setCurrentIndex(0)
+          setSelectedAnswer(null)
+          setShowResult(false)
+          setResult(null)
+          setHint('')
+          setShowHint(false)
+        }
+      }
+      return next
+    })
+  }
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      const raw = window.localStorage.getItem(practiceStorageKey)
+      if (!raw) return
+      const parsed = JSON.parse(raw)
+      const normalized = normalizePracticeSessions(parsed)
+      setPracticeHistory(normalized)
+      if (normalized.length > 0) {
+        selectPracticeSession(normalized[0])
+      }
+    } catch {
+      // ignore
+    }
+  }, [practiceStorageKey, normalizePracticeSessions])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (practiceHistory.length === 0) {
+      window.localStorage.removeItem(practiceStorageKey)
+      return
+    }
+    window.localStorage.setItem(practiceStorageKey, JSON.stringify(practiceHistory))
+  }, [practiceHistory, practiceStorageKey])
   const handleSelectAnswer = (index: number) => {
     if (showResult) return
     setSelectedAnswer(index)
