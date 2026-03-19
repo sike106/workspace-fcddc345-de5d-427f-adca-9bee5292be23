@@ -83,7 +83,21 @@ npm run dev:clean
 This command:
 - kills stale processes holding port `3000`
 - removes stale `.next/dev/lock`
-- starts Next.js dev server cleanly on `http://127.0.0.1:3000`
+  - starts Next.js dev server cleanly on `http://127.0.0.1:3000`
+
+## Vercel Deploy
+
+This project is Vercel-ready as a standard Next.js App Router app.
+
+Steps:
+1. Push the repo to GitHub.
+2. In Vercel, click **Add New Project** and import this repo.
+3. Add environment variables in Vercel **Settings → Environment Variables** (copy from your local `.env`).
+4. Use a hosted database (Postgres/Neon/Supabase). SQLite `file:../db/custom.db` will not persist on Vercel.
+5. Deploy.
+
+Notes:
+- Leave `NEXT_PUBLIC_DEPLOY_TARGET` unset for Vercel.
 
 ## AI Provider Setup (OpenRouter, DeepSeek, Groq, Cohere, Hugging Face)
 
