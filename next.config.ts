@@ -6,14 +6,22 @@ const normalizedBasePath = basePathEnv
   ? basePathEnv.startsWith("/") ? basePathEnv : `/${basePathEnv}`
   : "";
 
+const isStaticExport =
+  process.env.NEXT_PUBLIC_DEPLOY_TARGET === "github" &&
+  process.env.VERCEL !== "1";
+
 const nextConfig: NextConfig = {
-  output: "export",
-  trailingSlash: true,
-  basePath: normalizedBasePath || undefined,
-  assetPrefix: normalizedBasePath || undefined,
-  images: {
-    unoptimized: true,
-  },
+  ...(isStaticExport
+    ? {
+        output: "export",
+        trailingSlash: true,
+        basePath: normalizedBasePath || undefined,
+        assetPrefix: normalizedBasePath || undefined,
+        images: {
+          unoptimized: true,
+        },
+      }
+    : {}),
   turbopack: {
     root: path.resolve(__dirname),
   },
