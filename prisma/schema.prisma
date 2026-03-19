@@ -1,0 +1,328 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== USER & AUTH ====================
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  password      String?
+  name          String
+  nickname      String?  @unique
+  role          String   @default("student") // student, teacher, admin
+  avatar        String?
+  isGuest       Boolean  @default(false)
+  suspendedUntil DateTime?
+  suspensionReason String?
+  suspensionMessagingDisabled Boolean @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  progress      Progress[]
+  aiHistory     AIHistory[]
+  revisionNotes RevisionNote[]
+  mockResults   MockResult[]
+  testAttempts  TestAttempt[]
+  questions     Question[]
+  mockTests     MockTest[]
+  practiceHistory PracticeQuestionHistory[]
+  doubts       Doubt[]
+  doubtReplies DoubtReply[]
+  guestAiUsage GuestAiUsage?
+  suspensionMessages SuspensionMessage[]
+  adminChatMessages AdminChatMessage[]
+  ideaMessages IdeaMessage[]
+}
+
+// ==================== PROGRESS TRACKING ====================
+
+model Progress {
+  id           String   @id @default(cuid())
+  userId       String
+  subject      String   // Physics, Chemistry, Mathematics
+  chapter      String
+  accuracy     Float    @default(0)
+  questionsSolved Int   @default(0)
+  correctAnswers  Int   @default(0)
+  totalTime       Int   @default(0) // in seconds
+  lastPracticed   DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, subject, chapter])
+}
+
+// ==================== QUESTIONS ====================
+
+model Question {
+  id              String   @id @default(cuid())
+  subject         String   // Physics, Chemistry, Mathematics
+  chapter         String
+  difficulty      String   // Easy, Medium, Hard
+  type            String   @default("single") // single, multiple, numerical, integer
+  question        String   // LaTeX supported
+  options         String?  // JSON array for options
+  correctAnswer   String   // Can be index or numerical value
+  solution        String?  // LaTeX solution
+  hint            String?
+  explanation     String?
+  alternateApproach String?
+  tags            String?  // JSON array of tags
+  pyqYear         Int?     // Previous Year Question year
+  pyqType         String?  // JEE Main, JEE Advanced
+  createdBy       String?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  creator         User?    @relation(fields: [createdBy], references: [id])
+  practiceHistory PracticeQuestionHistory[]
+}
+
+// ==================== MOCK TESTS ====================
+
+model MockTest {
+  id              String   @id @default(cuid())
+  title           String
+  description     String?
+  subject         String?  // null for full tests
+  chapter         String?
+  difficulty      String?
+  testType        String   // chapter, subject, full
+  duration        Int      // in minutes
+  totalMarks      Int
+  negativeMarking Float   @default(0.25)
+  questionIds     String   // JSON array of question IDs
+  instructions    String?
+  isActive        Boolean  @default(true)
+  createdBy       String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  creator         User?    @relation(fields: [createdBy], references: [id])
+  results         MockResult[]
+  attempts        TestAttempt[]
+}
+
+model MockResult {
+  id              String   @id @default(cuid())
+  testId          String
+  userId          String
+  answers         String   // JSON object {questionId: answer}
+  score           Float
+  correct         Int
+  incorrect       Int
+  unattempted     Int
+  timeTaken       Int      // in seconds
+  rank            Int?
+  percentile      Float?
+  analysis        String?  // JSON analysis data
+  submittedAt     DateTime @default(now())
+
+  test            MockTest @relation(fields: [testId], references: [id], onDelete: Cascade)
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model TestAttempt {
+  id              String   @id @default(cuid())
+  testId          String
+  userId          String
+  status          String   @default("in_progress") // in_progress, submitted, abandoned
+  currentQuestion Int      @default(0)
+  answers         String?  // JSON object
+  startedAt       DateTime @default(now())
+  lastActivity    DateTime @default(now())
+
+  test            MockTest @relation(fields: [testId], references: [id], onDelete: Cascade)
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ==================== AI INTERACTION ====================
+
+model AIHistory {
+  id           String   @id @default(cuid())
+  userId       String
+  subject      String?
+  chapter      String?
+  mode         String   @default("exam") // strict, friendly, exam
+  userMessage  String
+  aiResponse   String
+  tokensUsed   Int      @default(0)
+  modelUsed    String?
+  createdAt    DateTime @default(now())
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model RevisionNote {
+  id           String   @id @default(cuid())
+  userId       String
+  subject      String
+  chapter      String
+  examType     String   // JEE Main, JEE Advanced
+  content      String   // Markdown content
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, subject, chapter, examType])
+}
+
+model RevisionNoteGlobal {
+  id        String   @id @default(cuid())
+  subject   String
+  chapter   String
+  examType  String   // JEE Main, JEE Advanced
+  content   String   // Markdown content
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([subject, chapter, examType])
+  @@index([subject, chapter])
+}
+
+model EmailOtp {
+  id         String   @id @default(cuid())
+  email      String
+  purpose    String   // login, password_reset
+  codeHash   String
+  attempts   Int      @default(0)
+  consumedAt DateTime?
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+
+  @@index([email, purpose, createdAt])
+  @@index([email, purpose, expiresAt])
+}
+
+model Doubt {
+  id           String   @id @default(cuid())
+  userId       String
+  title        String
+  description  String
+  subject      String
+  chapter      String?
+  status       String   @default("pending") // pending, resolved
+  isDeleted    Boolean  @default(false)
+  deletedReason String?
+  deletedAt    DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  replies      DoubtReply[]
+
+  @@index([userId, createdAt])
+  @@index([subject, status, createdAt])
+  @@index([isDeleted, updatedAt])
+}
+
+model DoubtReply {
+  id           String   @id @default(cuid())
+  doubtId      String
+  userId       String?
+  authorType   String   @default("user") // user, admin, ai
+  authorName   String?
+  content      String
+  createdAt    DateTime @default(now())
+
+  doubt        Doubt    @relation(fields: [doubtId], references: [id], onDelete: Cascade)
+  user         User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([doubtId, createdAt])
+}
+
+model PracticeQuestionHistory {
+  id         String   @id @default(cuid())
+  userId     String
+  questionId String
+  servedCount Int     @default(1)
+  lastServed DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  question  Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, questionId])
+  @@index([userId, lastServed])
+}
+
+model SuspensionMessage {
+  id         String   @id @default(cuid())
+  userId     String
+  senderType String   @default("user") // user, admin, system
+  senderName String?
+  message    String
+  createdAt  DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model AdminChatMessage {
+  id        String   @id @default(cuid())
+  userId    String
+  content   String
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+  @@index([userId, createdAt])
+}
+
+model IdeaMessage {
+  id         String   @id @default(cuid())
+  userId     String
+  senderType String   @default("user") // user, admin
+  senderName String?
+  message    String
+  createdAt  DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+// ==================== SYSTEM ====================
+
+model SystemConfig {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+model GuestDeviceUsage {
+  id          String   @id @default(cuid())
+  deviceId    String   @unique
+  guestLogins Int      @default(0)
+  lastLoginAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model GuestAiUsage {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  aiActionsUsed  Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
