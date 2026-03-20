@@ -1411,7 +1411,7 @@ function MainLayout({
   ]
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="h-screen overflow-hidden md:flex">
       {isMobile && sidebarOpen && (
         <div
           className="fixed inset-0 bg-black/40 z-30"
@@ -1518,7 +1518,7 @@ function MainLayout({
       </motion.aside>
 
       {/* Main Content */}
-      <main className="flex-1 min-h-0 overflow-auto">
+      <main className="w-full md:flex-1 min-h-0 overflow-auto">
         {/* Header */}
         <header className="bg-slate-800/30 backdrop-blur-sm border-b border-slate-700 px-4 md:px-6 py-3 md:py-4 flex items-center justify-between sticky top-0 z-10 shrink-0">
           <button
