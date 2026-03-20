@@ -375,19 +375,6 @@ const api = {
       api.request('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
     signup: (email: string, password: string, name: string, role: string) =>
       api.request('/auth/signup', { method: 'POST', body: JSON.stringify({ email, password, name, role }) }),
-    requestOtp: (email: string, purpose: 'login' | 'password_reset') =>
-      api.request('/auth/otp/request', { method: 'POST', body: JSON.stringify({ email, purpose }) }),
-    verifyOtp: (
-      email: string,
-      code: string,
-      purpose: 'login' | 'password_reset',
-      newPassword?: string,
-      otpSessionToken?: string
-    ) =>
-      api.request('/auth/otp/verify', {
-        method: 'POST',
-        body: JSON.stringify({ email, code, purpose, newPassword, otpSessionToken }),
-      }),
     google: (idToken: string, guestId?: string) =>
       api.request('/auth/google', {
         method: 'POST',

@@ -23,12 +23,6 @@ export interface JWTPayload {
   name: string
 }
 
-export interface LoginOtpSessionPayload {
-  email: string
-  purpose: 'login_otp'
-  guestId?: string
-}
-
 interface PasswordReauthPayload {
   purpose: 'password_reauth'
   userId: string
@@ -175,35 +169,6 @@ export async function verifyToken(token: string): Promise<JWTPayload | null> {
     const secret = new TextEncoder().encode(JWT_SECRET)
     const { payload } = await jwtVerify(token, secret)
     return payload as JWTPayload
-  } catch {
-    return null
-  }
-}
-
-export async function generateLoginOtpSessionToken(
-  payload: LoginOtpSessionPayload,
-  expiresIn: string = '10m'
-): Promise<string> {
-  const secret = new TextEncoder().encode(JWT_SECRET)
-  return new SignJWT(payload as unknown as Record<string, string>)
-    .setProtectedHeader({ alg: 'HS256' })
-    .setIssuedAt()
-    .setExpirationTime(expiresIn)
-    .sign(secret)
-}
-
-export async function verifyLoginOtpSessionToken(token: string): Promise<LoginOtpSessionPayload | null> {
-  try {
-    const secret = new TextEncoder().encode(JWT_SECRET)
-    const { payload } = await jwtVerify(token, secret)
-    if (payload.purpose !== 'login_otp' || typeof payload.email !== 'string') {
-      return null
-    }
-    return {
-      email: payload.email,
-      purpose: 'login_otp',
-      guestId: typeof payload.guestId === 'string' ? payload.guestId : undefined,
-    }
   } catch {
     return null
   }

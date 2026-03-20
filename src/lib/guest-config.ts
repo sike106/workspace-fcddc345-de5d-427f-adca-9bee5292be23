@@ -5,7 +5,7 @@ function readPositiveInt(value: string | undefined, fallback: number): number {
 
 const DEFAULT_GUEST_AI_FEATURE_LIMIT = 50
 const DEFAULT_GUEST_AI_TUTOR_RESPONSE_LIMIT = 30
-const DEFAULT_GUEST_SESSION_MAX_AGE_SECONDS = 60 * 60 * 24
+const DEFAULT_GUEST_SESSION_MAX_AGE_SECONDS = 60 * 10
 
 export const GUEST_AI_FEATURE_LIMIT = readPositiveInt(
   process.env.GUEST_AI_FEATURE_LIMIT,
