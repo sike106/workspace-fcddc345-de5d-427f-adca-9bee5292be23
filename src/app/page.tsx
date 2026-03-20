@@ -1361,10 +1361,25 @@ function MainLayout({
   const isStaff = user?.role === 'teacher' || user?.role === 'admin'
   const suspendedUntilMs = user?.suspendedUntil ? new Date(user.suspendedUntil).getTime() : null
   const [currentTimeMs, setCurrentTimeMs] = useState(Date.now())
+  const [isMobile, setIsMobile] = useState(false)
   const isSuspended =
     typeof suspendedUntilMs === 'number' &&
     Number.isFinite(suspendedUntilMs) &&
     suspendedUntilMs > currentTimeMs
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const handleResize = () => setIsMobile(window.innerWidth < 768)
+    handleResize()
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  useEffect(() => {
+    if (isMobile) {
+      setSidebarOpen(false)
+    }
+  }, [isMobile, setSidebarOpen])
 
   useEffect(() => {
     if (!isSuspended) return
@@ -1397,11 +1412,24 @@ function MainLayout({
 
   return (
     <div className="flex h-screen overflow-hidden">
+      {isMobile && sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/40 z-30"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
       <motion.aside
         initial={false}
-        animate={{ width: sidebarOpen ? 256 : 80 }}
-        className="bg-slate-800/50 backdrop-blur-xl border-r border-slate-700 flex flex-col min-h-0"
+        animate={
+          isMobile
+            ? { x: sidebarOpen ? 0 : -256 }
+            : { width: sidebarOpen ? 256 : 80 }
+        }
+        transition={{ type: 'spring', stiffness: 260, damping: 30 }}
+        style={isMobile ? { width: 256 } : undefined}
+        className="fixed md:static inset-y-0 left-0 z-40 bg-slate-800/50 backdrop-blur-xl border-r border-slate-700 flex flex-col min-h-0"
       >
         {/* Logo */}
         <div className="p-4 border-b border-slate-700 flex items-center gap-3">
@@ -1422,7 +1450,12 @@ function MainLayout({
           {navItems.map(item => (
             <button
               key={item.id}
-              onClick={() => setView(item.id as View)}
+              onClick={() => {
+                setView(item.id as View)
+                if (isMobile) {
+                  setSidebarOpen(false)
+                }
+              }}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
                 view === item.id
                   ? 'bg-blue-500/20 text-blue-400'
@@ -1487,14 +1520,14 @@ function MainLayout({
       {/* Main Content */}
       <main className="flex-1 min-h-0 overflow-auto">
         {/* Header */}
-        <header className="bg-slate-800/30 backdrop-blur-sm border-b border-slate-700 px-6 py-4 flex items-center justify-between sticky top-0 z-10 shrink-0">
+        <header className="bg-slate-800/30 backdrop-blur-sm border-b border-slate-700 px-4 md:px-6 py-3 md:py-4 flex items-center justify-between sticky top-0 z-10 shrink-0">
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
             className="p-2 hover:bg-slate-700/50 rounded-lg transition-colors"
           >
             <Menu className="w-5 h-5" />
           </button>
-          <h1 className="text-xl font-semibold capitalize">{view.replace('-', ' ')}</h1>
+          <h1 className="text-lg md:text-xl font-semibold capitalize truncate">{view.replace('-', ' ')}</h1>
           <div className="flex items-center gap-2">
             {isSuspended && (
               <span className="text-xs px-2 py-1 rounded-full border border-red-500/40 bg-red-500/10 text-red-200">
@@ -1506,13 +1539,13 @@ function MainLayout({
               className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-700/50 hover:bg-red-500/20 hover:text-red-300 transition-colors text-sm"
             >
               <LogOut className="w-4 h-4" />
-              Logout
+              <span className="hidden sm:inline">Logout</span>
             </button>
           </div>
         </header>
 
         {/* Content */}
-        <div className="p-6">
+        <div className="p-4 md:p-6">
           {isSuspended ? (
             <SuspendedModeNotice
               view={view}
