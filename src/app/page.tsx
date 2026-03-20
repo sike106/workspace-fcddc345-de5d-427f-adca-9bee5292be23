@@ -876,6 +876,18 @@ export default function JEEStudyBuddy() {
     return Date.now() + GUEST_SESSION_MAX_AGE_MS
   }, [user])
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const handleResize = () => {
+      if (window.innerWidth < 1024) {
+        setSidebarOpen(false)
+      }
+    }
+    handleResize()
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
   const forceGuestLogoutToAuth = useCallback(async (notice: string) => {
     if (guestSessionEndedRef.current) return
     guestSessionEndedRef.current = true
@@ -1361,25 +1373,10 @@ function MainLayout({
   const isStaff = user?.role === 'teacher' || user?.role === 'admin'
   const suspendedUntilMs = user?.suspendedUntil ? new Date(user.suspendedUntil).getTime() : null
   const [currentTimeMs, setCurrentTimeMs] = useState(Date.now())
-  const [isMobile, setIsMobile] = useState(false)
   const isSuspended =
     typeof suspendedUntilMs === 'number' &&
     Number.isFinite(suspendedUntilMs) &&
     suspendedUntilMs > currentTimeMs
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    const handleResize = () => setIsMobile(window.innerWidth < 768)
-    handleResize()
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
-  }, [])
-
-  useEffect(() => {
-    if (isMobile) {
-      setSidebarOpen(false)
-    }
-  }, [isMobile, setSidebarOpen])
 
   useEffect(() => {
     if (!isSuspended) return
@@ -1411,8 +1408,8 @@ function MainLayout({
   ]
 
   return (
-    <div className="h-screen overflow-hidden md:flex">
-      {isMobile && sidebarOpen && (
+    <div className="h-screen overflow-hidden">
+      {sidebarOpen && (
         <div
           className="fixed inset-0 bg-black/40 z-30"
           onClick={() => setSidebarOpen(false)}
@@ -1422,19 +1419,15 @@ function MainLayout({
       {/* Sidebar */}
       <motion.aside
         initial={false}
-        animate={
-          isMobile
-            ? { x: sidebarOpen ? 0 : -256 }
-            : { width: sidebarOpen ? 256 : 80 }
-        }
+        animate={{ x: sidebarOpen ? 0 : -256 }}
         transition={{ type: 'spring', stiffness: 260, damping: 30 }}
-        style={isMobile ? { width: 256 } : undefined}
-        className="fixed md:static inset-y-0 left-0 z-40 bg-slate-800/50 backdrop-blur-xl border-r border-slate-700 flex flex-col min-h-0"
+        style={{ width: 256 }}
+        className="fixed inset-y-0 left-0 z-40 bg-slate-800/50 backdrop-blur-xl border-r border-slate-700 flex flex-col min-h-0"
       >
         {/* Logo */}
-        <div className="p-4 border-b border-slate-700 flex items-center gap-3">
-          <Brain className="w-8 h-8 text-blue-400 shrink-0" />
-          {sidebarOpen && (
+        <div className="p-4 border-b border-slate-700 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <Brain className="w-8 h-8 text-blue-400 shrink-0" />
             <motion.span
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -1442,6 +1435,15 @@ function MainLayout({
             >
               JEE Study Buddy
             </motion.span>
+          </div>
+          {sidebarOpen && (
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="p-2 rounded-lg hover:bg-slate-700/50 transition-colors"
+              aria-label="Close sidebar"
+            >
+              <X className="w-4 h-4" />
+            </button>
           )}
         </div>
 
@@ -1452,9 +1454,7 @@ function MainLayout({
               key={item.id}
               onClick={() => {
                 setView(item.id as View)
-                if (isMobile) {
-                  setSidebarOpen(false)
-                }
+                setSidebarOpen(false)
               }}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
                 view === item.id
@@ -1518,15 +1518,17 @@ function MainLayout({
       </motion.aside>
 
       {/* Main Content */}
-      <main className="w-full md:flex-1 min-h-0 overflow-auto">
+      <main className="w-full min-h-0 overflow-auto">
         {/* Header */}
         <header className="bg-slate-800/30 backdrop-blur-sm border-b border-slate-700 px-4 md:px-6 py-3 md:py-4 flex items-center justify-between sticky top-0 z-10 shrink-0">
-          <button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="p-2 hover:bg-slate-700/50 rounded-lg transition-colors"
-          >
-            <Menu className="w-5 h-5" />
-          </button>
+          {!sidebarOpen && (
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="p-2 hover:bg-slate-700/50 rounded-lg transition-colors"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+          )}
           <h1 className="text-lg md:text-xl font-semibold capitalize truncate">{view.replace('-', ' ')}</h1>
           <div className="flex items-center gap-2">
             {isSuspended && (
