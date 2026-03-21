@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef, type FormEvent, type ChangeEvent, type UIEvent } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import Script from 'next/script'
 import { getRedirectResult, signInWithRedirect, signInWithPopup } from 'firebase/auth'
 import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore'
 import { Switch } from '@/components/ui/switch'
@@ -1413,15 +1412,6 @@ function MainLayout({
 
   return (
     <div className="flex h-screen overflow-hidden">
-      {(view === 'auth' || view === 'dashboard') && (
-        <Script
-          id="adsbygoogle-sdk"
-          async
-          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6942703237637346"
-          crossOrigin="anonymous"
-          strategy="afterInteractive"
-        />
-      )}
       {isMobile && sidebarOpen && (
         <div
           className="fixed inset-0 bg-black/40 z-30"

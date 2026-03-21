@@ -46,6 +46,7 @@ export default function RootLayout({
           name="google-site-verification"
           content="zVxYIbX0rDFt0nU2YsfLh8fSvFb81g4cQKKXt_V4oR0"
         />
+        <meta name="google-adsense-account" content="ca-pub-6942703237637346" />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground relative min-h-screen overflow-x-hidden`}
