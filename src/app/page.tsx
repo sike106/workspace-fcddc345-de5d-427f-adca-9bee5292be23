@@ -888,6 +888,26 @@ export default function JEEStudyBuddy() {
     return () => window.removeEventListener('resize', handleResize)
   }, [])
 
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+
+    const prevBodyOverflow = document.body.style.overflow
+    const prevHtmlOverflow = document.documentElement.style.overflow
+
+    if (view === 'ai-tutor') {
+      document.body.style.overflow = 'hidden'
+      document.documentElement.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = prevBodyOverflow
+      document.documentElement.style.overflow = prevHtmlOverflow
+    }
+
+    return () => {
+      document.body.style.overflow = prevBodyOverflow
+      document.documentElement.style.overflow = prevHtmlOverflow
+    }
+  }, [view])
+
   const forceGuestLogoutToAuth = useCallback(async (notice: string) => {
     if (guestSessionEndedRef.current) return
     guestSessionEndedRef.current = true
@@ -1408,7 +1428,7 @@ function MainLayout({
   ]
 
   return (
-    <div className="h-screen overflow-hidden">
+    <div className={`${view === 'ai-tutor' ? 'h-screen overflow-hidden flex flex-col' : 'min-h-screen'}`}>
       {sidebarOpen && (
         <div
           className="fixed inset-0 bg-black/40 z-30"
@@ -1518,7 +1538,7 @@ function MainLayout({
       </motion.aside>
 
       {/* Main Content */}
-      <main className="w-full min-h-0 overflow-auto">
+      <main className={`w-full ${view === 'ai-tutor' ? 'flex-1 min-h-0 overflow-hidden flex flex-col' : 'min-h-screen'}`}>
         {/* Header */}
         <header className="bg-slate-800/30 backdrop-blur-sm border-b border-slate-700 px-4 md:px-6 py-3 md:py-4 flex items-center justify-between sticky top-0 z-10 shrink-0">
           {!sidebarOpen && (
@@ -1547,7 +1567,7 @@ function MainLayout({
         </header>
 
         {/* Content */}
-        <div className="p-4 md:p-6">
+        <div className={`p-4 md:p-6 ${view === 'ai-tutor' ? 'flex-1 min-h-0 overflow-hidden' : ''}`}>
           {isSuspended ? (
             <SuspendedModeNotice
               view={view}
@@ -1615,15 +1635,19 @@ function SuspendedModeNotice({
   const [appealInput, setAppealInput] = useState('')
   const [sendingAppeal, setSendingAppeal] = useState(false)
 
-  const loadConversation = useCallback(async () => {
+  const loadConversation = useCallback(async (silent = false) => {
     if (!user?.id) {
       setConversation(null)
-      setLoadingConversation(false)
+      if (!silent) {
+        setLoadingConversation(false)
+      }
       return
     }
 
-    setLoadingConversation(true)
-    setConversationError('')
+    if (!silent) {
+      setLoadingConversation(true)
+      setConversationError('')
+    }
     try {
       const data = await api.suspension.messages()
       const payload = data?.conversation
@@ -1653,16 +1677,28 @@ function SuspendedModeNotice({
         })),
       })
     } catch (err: any) {
-      setConversation(null)
-      setConversationError(err?.message || 'Unable to load admin support chat.')
+      if (!silent) {
+        setConversation(null)
+        setConversationError(err?.message || 'Unable to load admin support chat.')
+      }
     } finally {
-      setLoadingConversation(false)
+      if (!silent) {
+        setLoadingConversation(false)
+      }
     }
   }, [user?.id])
 
   useEffect(() => {
     void loadConversation()
   }, [loadConversation])
+
+  useEffect(() => {
+    if (!user?.id) return
+    const interval = setInterval(() => {
+      void loadConversation(true)
+    }, 5000)
+    return () => clearInterval(interval)
+  }, [user?.id, loadConversation])
 
   const messagingDisabled = conversation?.user?.suspensionMessagingDisabled || false
   const hasAdminMessage = conversation?.messages?.some(
@@ -6026,7 +6062,7 @@ function DoubtClearing({ user }: { user: User | null }) {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="h-[calc(100vh-140px)] flex flex-col"
+      className="h-full flex flex-col"
     >
       <div className="mb-4 flex items-start justify-between gap-4">
         <div>
@@ -7368,10 +7404,12 @@ function TeacherDashboard({ user }: { user: User | null }) {
     }
   }, [isAdmin])
 
-  const loadSupportConversation = useCallback(async (targetUserId: string) => {
+  const loadSupportConversation = useCallback(async (targetUserId: string, silent = false) => {
     if (!targetUserId) return
-    setSupportLoading(true)
-    setSupportError('')
+    if (!silent) {
+      setSupportLoading(true)
+      setSupportError('')
+    }
     try {
       const data = await api.suspension.messages(targetUserId)
       const payload = data?.conversation
@@ -7401,23 +7439,33 @@ function TeacherDashboard({ user }: { user: User | null }) {
       })
       setSelectedSupportUserId(targetUserId)
     } catch (err: any) {
-      setSupportError(err?.message || 'Failed to load support messages.')
-      setSelectedSupportConversation(null)
-      setSelectedSupportUserId(targetUserId)
+      if (!silent) {
+        setSupportError(err?.message || 'Failed to load support messages.')
+      }
+      if (!silent) {
+        setSelectedSupportConversation(null)
+        setSelectedSupportUserId(targetUserId)
+      }
     } finally {
-      setSupportLoading(false)
+      if (!silent) {
+        setSupportLoading(false)
+      }
     }
   }, [])
 
-  const loadAdminChat = useCallback(async () => {
+  const loadAdminChat = useCallback(async (silent = false) => {
     if (!isAdmin) {
       setAdminChatMessages([])
-      setAdminChatLoading(false)
+      if (!silent) {
+        setAdminChatLoading(false)
+      }
       return
     }
 
-    setAdminChatLoading(true)
-    setAdminChatError('')
+    if (!silent) {
+      setAdminChatLoading(true)
+      setAdminChatError('')
+    }
     try {
       const data = await api.admin.chatMessages(200)
       const rawMessages = Array.isArray(data?.messages) ? data.messages : []
@@ -7433,10 +7481,14 @@ function TeacherDashboard({ user }: { user: User | null }) {
       })).filter((item: AdminChatMessage) => item.id && item.content)
       setAdminChatMessages(normalized)
     } catch (err: any) {
-      setAdminChatMessages([])
-      setAdminChatError(err?.message || 'Failed to load admin chat.')
+      if (!silent) {
+        setAdminChatMessages([])
+        setAdminChatError(err?.message || 'Failed to load admin chat.')
+      }
     } finally {
-      setAdminChatLoading(false)
+      if (!silent) {
+        setAdminChatLoading(false)
+      }
     }
   }, [isAdmin])
 
@@ -7479,6 +7531,22 @@ function TeacherDashboard({ user }: { user: User | null }) {
   useEffect(() => {
     void loadAdminChat()
   }, [loadAdminChat])
+
+  useEffect(() => {
+    if (!isAdmin) return
+    const interval = setInterval(() => {
+      void loadAdminChat(true)
+    }, 5000)
+    return () => clearInterval(interval)
+  }, [isAdmin, loadAdminChat])
+
+  useEffect(() => {
+    if (!selectedSupportUserId) return
+    const interval = setInterval(() => {
+      void loadSupportConversation(selectedSupportUserId, true)
+    }, 5000)
+    return () => clearInterval(interval)
+  }, [selectedSupportUserId, loadSupportConversation])
 
   useEffect(() => {
     if (!adminChatScrollRef.current) return
@@ -8480,7 +8548,7 @@ function TeacherDashboard({ user }: { user: User | null }) {
             </h3>
             <button
               type="button"
-              onClick={loadAdminChat}
+              onClick={() => void loadAdminChat()}
               disabled={adminChatLoading}
               className="px-3 py-2 text-xs rounded-lg border border-slate-600 bg-slate-700/60 hover:bg-slate-700/90 disabled:opacity-50"
             >
