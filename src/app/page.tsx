@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef, type FormEvent, type ChangeEvent, type UIEvent } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import Script from 'next/script'
 import { getRedirectResult, signInWithRedirect, signInWithPopup } from 'firebase/auth'
 import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore'
 import { Switch } from '@/components/ui/switch'
@@ -876,38 +877,6 @@ export default function JEEStudyBuddy() {
     return Date.now() + GUEST_SESSION_MAX_AGE_MS
   }, [user])
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    const handleResize = () => {
-      if (window.innerWidth < 1024) {
-        setSidebarOpen(false)
-      }
-    }
-    handleResize()
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
-  }, [])
-
-  useEffect(() => {
-    if (typeof document === 'undefined') return
-
-    const prevBodyOverflow = document.body.style.overflow
-    const prevHtmlOverflow = document.documentElement.style.overflow
-
-    if (view === 'ai-tutor') {
-      document.body.style.overflow = 'hidden'
-      document.documentElement.style.overflow = 'hidden'
-    } else {
-      document.body.style.overflow = prevBodyOverflow
-      document.documentElement.style.overflow = prevHtmlOverflow
-    }
-
-    return () => {
-      document.body.style.overflow = prevBodyOverflow
-      document.documentElement.style.overflow = prevHtmlOverflow
-    }
-  }, [view])
-
   const forceGuestLogoutToAuth = useCallback(async (notice: string) => {
     if (guestSessionEndedRef.current) return
     guestSessionEndedRef.current = true
@@ -1393,10 +1362,25 @@ function MainLayout({
   const isStaff = user?.role === 'teacher' || user?.role === 'admin'
   const suspendedUntilMs = user?.suspendedUntil ? new Date(user.suspendedUntil).getTime() : null
   const [currentTimeMs, setCurrentTimeMs] = useState(Date.now())
+  const [isMobile, setIsMobile] = useState(false)
   const isSuspended =
     typeof suspendedUntilMs === 'number' &&
     Number.isFinite(suspendedUntilMs) &&
     suspendedUntilMs > currentTimeMs
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const handleResize = () => setIsMobile(window.innerWidth < 768)
+    handleResize()
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  useEffect(() => {
+    if (isMobile) {
+      setSidebarOpen(false)
+    }
+  }, [isMobile, setSidebarOpen])
 
   useEffect(() => {
     if (!isSuspended) return
@@ -1428,8 +1412,17 @@ function MainLayout({
   ]
 
   return (
-    <div className={`${view === 'ai-tutor' ? 'h-screen overflow-hidden flex flex-col' : 'min-h-screen'}`}>
-      {sidebarOpen && (
+    <div className="flex h-screen overflow-hidden">
+      {(view === 'auth' || view === 'dashboard') && (
+        <Script
+          id="adsbygoogle-sdk"
+          async
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6942703237637346"
+          crossOrigin="anonymous"
+          strategy="afterInteractive"
+        />
+      )}
+      {isMobile && sidebarOpen && (
         <div
           className="fixed inset-0 bg-black/40 z-30"
           onClick={() => setSidebarOpen(false)}
@@ -1439,15 +1432,19 @@ function MainLayout({
       {/* Sidebar */}
       <motion.aside
         initial={false}
-        animate={{ x: sidebarOpen ? 0 : -256 }}
+        animate={
+          isMobile
+            ? { x: sidebarOpen ? 0 : -256 }
+            : { width: sidebarOpen ? 256 : 80 }
+        }
         transition={{ type: 'spring', stiffness: 260, damping: 30 }}
-        style={{ width: 256 }}
-        className="fixed inset-y-0 left-0 z-40 bg-slate-800/50 backdrop-blur-xl border-r border-slate-700 flex flex-col min-h-0"
+        style={isMobile ? { width: 256 } : undefined}
+        className="fixed md:static inset-y-0 left-0 z-40 bg-slate-800/50 backdrop-blur-xl border-r border-slate-700 flex flex-col min-h-0"
       >
         {/* Logo */}
-        <div className="p-4 border-b border-slate-700 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <Brain className="w-8 h-8 text-blue-400 shrink-0" />
+        <div className="p-4 border-b border-slate-700 flex items-center gap-3">
+          <Brain className="w-8 h-8 text-blue-400 shrink-0" />
+          {sidebarOpen && (
             <motion.span
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -1455,15 +1452,6 @@ function MainLayout({
             >
               JEE Study Buddy
             </motion.span>
-          </div>
-          {sidebarOpen && (
-            <button
-              onClick={() => setSidebarOpen(false)}
-              className="p-2 rounded-lg hover:bg-slate-700/50 transition-colors"
-              aria-label="Close sidebar"
-            >
-              <X className="w-4 h-4" />
-            </button>
           )}
         </div>
 
@@ -1474,7 +1462,9 @@ function MainLayout({
               key={item.id}
               onClick={() => {
                 setView(item.id as View)
-                setSidebarOpen(false)
+                if (isMobile) {
+                  setSidebarOpen(false)
+                }
               }}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
                 view === item.id
@@ -1538,17 +1528,15 @@ function MainLayout({
       </motion.aside>
 
       {/* Main Content */}
-      <main className={`w-full ${view === 'ai-tutor' ? 'flex-1 min-h-0 overflow-hidden flex flex-col' : 'min-h-screen'}`}>
+      <main className="flex-1 min-h-0 overflow-auto">
         {/* Header */}
         <header className="bg-slate-800/30 backdrop-blur-sm border-b border-slate-700 px-4 md:px-6 py-3 md:py-4 flex items-center justify-between sticky top-0 z-10 shrink-0">
-          {!sidebarOpen && (
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="p-2 hover:bg-slate-700/50 rounded-lg transition-colors"
-            >
-              <Menu className="w-5 h-5" />
-            </button>
-          )}
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="p-2 hover:bg-slate-700/50 rounded-lg transition-colors"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
           <h1 className="text-lg md:text-xl font-semibold capitalize truncate">{view.replace('-', ' ')}</h1>
           <div className="flex items-center gap-2">
             {isSuspended && (
@@ -1567,7 +1555,7 @@ function MainLayout({
         </header>
 
         {/* Content */}
-        <div className={`p-4 md:p-6 ${view === 'ai-tutor' ? 'flex-1 min-h-0 overflow-hidden' : ''}`}>
+        <div className="p-4 md:p-6">
           {isSuspended ? (
             <SuspendedModeNotice
               view={view}
@@ -1635,19 +1623,15 @@ function SuspendedModeNotice({
   const [appealInput, setAppealInput] = useState('')
   const [sendingAppeal, setSendingAppeal] = useState(false)
 
-  const loadConversation = useCallback(async (silent = false) => {
+  const loadConversation = useCallback(async () => {
     if (!user?.id) {
       setConversation(null)
-      if (!silent) {
-        setLoadingConversation(false)
-      }
+      setLoadingConversation(false)
       return
     }
 
-    if (!silent) {
-      setLoadingConversation(true)
-      setConversationError('')
-    }
+    setLoadingConversation(true)
+    setConversationError('')
     try {
       const data = await api.suspension.messages()
       const payload = data?.conversation
@@ -1677,28 +1661,16 @@ function SuspendedModeNotice({
         })),
       })
     } catch (err: any) {
-      if (!silent) {
-        setConversation(null)
-        setConversationError(err?.message || 'Unable to load admin support chat.')
-      }
+      setConversation(null)
+      setConversationError(err?.message || 'Unable to load admin support chat.')
     } finally {
-      if (!silent) {
-        setLoadingConversation(false)
-      }
+      setLoadingConversation(false)
     }
   }, [user?.id])
 
   useEffect(() => {
     void loadConversation()
   }, [loadConversation])
-
-  useEffect(() => {
-    if (!user?.id) return
-    const interval = setInterval(() => {
-      void loadConversation(true)
-    }, 5000)
-    return () => clearInterval(interval)
-  }, [user?.id, loadConversation])
 
   const messagingDisabled = conversation?.user?.suspensionMessagingDisabled || false
   const hasAdminMessage = conversation?.messages?.some(
@@ -6062,7 +6034,7 @@ function DoubtClearing({ user }: { user: User | null }) {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="h-full flex flex-col"
+      className="h-[calc(100vh-140px)] flex flex-col"
     >
       <div className="mb-4 flex items-start justify-between gap-4">
         <div>
@@ -7404,12 +7376,10 @@ function TeacherDashboard({ user }: { user: User | null }) {
     }
   }, [isAdmin])
 
-  const loadSupportConversation = useCallback(async (targetUserId: string, silent = false) => {
+  const loadSupportConversation = useCallback(async (targetUserId: string) => {
     if (!targetUserId) return
-    if (!silent) {
-      setSupportLoading(true)
-      setSupportError('')
-    }
+    setSupportLoading(true)
+    setSupportError('')
     try {
       const data = await api.suspension.messages(targetUserId)
       const payload = data?.conversation
@@ -7439,33 +7409,23 @@ function TeacherDashboard({ user }: { user: User | null }) {
       })
       setSelectedSupportUserId(targetUserId)
     } catch (err: any) {
-      if (!silent) {
-        setSupportError(err?.message || 'Failed to load support messages.')
-      }
-      if (!silent) {
-        setSelectedSupportConversation(null)
-        setSelectedSupportUserId(targetUserId)
-      }
+      setSupportError(err?.message || 'Failed to load support messages.')
+      setSelectedSupportConversation(null)
+      setSelectedSupportUserId(targetUserId)
     } finally {
-      if (!silent) {
-        setSupportLoading(false)
-      }
+      setSupportLoading(false)
     }
   }, [])
 
-  const loadAdminChat = useCallback(async (silent = false) => {
+  const loadAdminChat = useCallback(async () => {
     if (!isAdmin) {
       setAdminChatMessages([])
-      if (!silent) {
-        setAdminChatLoading(false)
-      }
+      setAdminChatLoading(false)
       return
     }
 
-    if (!silent) {
-      setAdminChatLoading(true)
-      setAdminChatError('')
-    }
+    setAdminChatLoading(true)
+    setAdminChatError('')
     try {
       const data = await api.admin.chatMessages(200)
       const rawMessages = Array.isArray(data?.messages) ? data.messages : []
@@ -7481,14 +7441,10 @@ function TeacherDashboard({ user }: { user: User | null }) {
       })).filter((item: AdminChatMessage) => item.id && item.content)
       setAdminChatMessages(normalized)
     } catch (err: any) {
-      if (!silent) {
-        setAdminChatMessages([])
-        setAdminChatError(err?.message || 'Failed to load admin chat.')
-      }
+      setAdminChatMessages([])
+      setAdminChatError(err?.message || 'Failed to load admin chat.')
     } finally {
-      if (!silent) {
-        setAdminChatLoading(false)
-      }
+      setAdminChatLoading(false)
     }
   }, [isAdmin])
 
@@ -7531,22 +7487,6 @@ function TeacherDashboard({ user }: { user: User | null }) {
   useEffect(() => {
     void loadAdminChat()
   }, [loadAdminChat])
-
-  useEffect(() => {
-    if (!isAdmin) return
-    const interval = setInterval(() => {
-      void loadAdminChat(true)
-    }, 5000)
-    return () => clearInterval(interval)
-  }, [isAdmin, loadAdminChat])
-
-  useEffect(() => {
-    if (!selectedSupportUserId) return
-    const interval = setInterval(() => {
-      void loadSupportConversation(selectedSupportUserId, true)
-    }, 5000)
-    return () => clearInterval(interval)
-  }, [selectedSupportUserId, loadSupportConversation])
 
   useEffect(() => {
     if (!adminChatScrollRef.current) return
@@ -8548,7 +8488,7 @@ function TeacherDashboard({ user }: { user: User | null }) {
             </h3>
             <button
               type="button"
-              onClick={() => void loadAdminChat()}
+              onClick={loadAdminChat}
               disabled={adminChatLoading}
               className="px-3 py-2 text-xs rounded-lg border border-slate-600 bg-slate-700/60 hover:bg-slate-700/90 disabled:opacity-50"
             >
