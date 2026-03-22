@@ -47,12 +47,6 @@ export default function RootLayout({
           content="zVxYIbX0rDFt0nU2YsfLh8fSvFb81g4cQKKXt_V4oR0"
         />
         <meta name="google-adsense-account" content="ca-pub-6942703237637346" />
-        <script
-          src="https://quge5.com/88/tag.min.js"
-          data-zone="221960"
-          async
-          data-cfasync="false"
-        />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground relative min-h-screen overflow-x-hidden`}

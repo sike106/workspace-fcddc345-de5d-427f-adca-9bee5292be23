@@ -32,7 +32,7 @@ interface ChatOptions {
   preferReasoning?: boolean
 }
 
-type Provider = 'openrouter' | 'sambanova' | 'deepseek' | 'groq' | 'cohere' | 'huggingface'
+type Provider = 'openrouter' | 'sambanova' | 'deepseek' | 'groq' | 'fireworks' | 'cohere' | 'huggingface'
 
 export type ProviderStatus = {
   provider: Provider
@@ -65,6 +65,11 @@ const GROQ_API_KEY = process.env.GROQ_API_KEY?.trim() || ''
 const GROQ_MODEL = process.env.GROQ_MODEL?.trim() || 'llama-3.1-8b-instant'
 const GROQ_REASONING_MODEL = process.env.GROQ_REASONING_MODEL?.trim() || GROQ_MODEL
 
+const FIREWORKS_API_KEY = process.env.FIREWORKS_API_KEY?.trim() || ''
+const FIREWORKS_MODEL = process.env.FIREWORKS_MODEL?.trim() || 'deepseek-v3p1'
+const FIREWORKS_REASONING_MODEL = process.env.FIREWORKS_REASONING_MODEL?.trim() || FIREWORKS_MODEL
+const FIREWORKS_BASE_URL = process.env.FIREWORKS_BASE_URL?.trim() || 'https://api.fireworks.ai/inference/v1/chat/completions'
+
 const COHERE_API_KEY = process.env.COHERE_API_KEY?.trim() || ''
 const COHERE_MODEL = process.env.COHERE_MODEL?.trim() || 'command-r'
 const COHERE_REASONING_MODEL = process.env.COHERE_REASONING_MODEL?.trim() || COHERE_MODEL
@@ -95,6 +100,7 @@ const providerStats: Record<Provider, { lastSuccessAt: number | null; lastErrorA
   sambanova: { lastSuccessAt: null, lastErrorAt: null, lastError: null, lastModelUsed: null },
   deepseek: { lastSuccessAt: null, lastErrorAt: null, lastError: null, lastModelUsed: null },
   groq: { lastSuccessAt: null, lastErrorAt: null, lastError: null, lastModelUsed: null },
+  fireworks: { lastSuccessAt: null, lastErrorAt: null, lastError: null, lastModelUsed: null },
   cohere: { lastSuccessAt: null, lastErrorAt: null, lastError: null, lastModelUsed: null },
   huggingface: { lastSuccessAt: null, lastErrorAt: null, lastError: null, lastModelUsed: null },
 }
@@ -145,6 +151,7 @@ export function getAiProviderStatus(): {
     sambanova: { configured: Boolean(SAMBANOVA_API_KEY), model: SAMBANOVA_MODEL, reasoningModel: SAMBANOVA_REASONING_MODEL },
     deepseek: { configured: Boolean(DEEPSEEK_API_KEY), model: DEEPSEEK_MODEL, reasoningModel: DEEPSEEK_REASONING_MODEL },
     groq: { configured: Boolean(GROQ_API_KEY), model: GROQ_MODEL, reasoningModel: GROQ_REASONING_MODEL },
+    fireworks: { configured: Boolean(FIREWORKS_API_KEY), model: FIREWORKS_MODEL, reasoningModel: FIREWORKS_REASONING_MODEL },
     cohere: { configured: Boolean(COHERE_API_KEY), model: COHERE_MODEL, reasoningModel: COHERE_REASONING_MODEL },
     huggingface: { configured: Boolean(HF_TOKEN), model: HF_MODEL, reasoningModel: HF_REASONING_MODEL },
   }
@@ -482,6 +489,47 @@ async function callDeepSeek(options: ChatOptions): Promise<{ content: string; to
   }
 }
 
+async function callFireworks(options: ChatOptions): Promise<{ content: string; tokens: number; modelUsed: string }> {
+  if (!FIREWORKS_API_KEY) {
+    throw new Error('FIREWORKS_API_KEY is not configured')
+  }
+  const selectedModel = chooseModel(
+    FIREWORKS_MODEL,
+    FIREWORKS_REASONING_MODEL,
+    options.preferReasoning
+  )
+
+  const response = await fetch(FIREWORKS_BASE_URL, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${FIREWORKS_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: selectedModel,
+      messages: options.messages,
+      temperature: options.temperature,
+      max_tokens: options.maxTokens,
+    }),
+  })
+
+  const payload = await parseJsonSafe(response)
+  if (!response.ok) {
+    throw new Error(`Fireworks request failed (${response.status}): ${extractApiError(payload)}`)
+  }
+
+  const content = payload?.choices?.[0]?.message?.content
+  if (!content || typeof content !== 'string') {
+    throw new Error('Fireworks response did not contain assistant content')
+  }
+
+  return {
+    content,
+    tokens: payload?.usage?.total_tokens || 0,
+    modelUsed: `fireworks:${selectedModel}`,
+  }
+}
+
 async function callCohere(options: ChatOptions): Promise<{ content: string; tokens: number; modelUsed: string }> {
   if (!COHERE_API_KEY) {
     throw new Error('COHERE_API_KEY is not configured')
@@ -757,6 +805,51 @@ async function callGroqStream(
   }
 }
 
+async function callFireworksStream(
+  options: ChatOptions,
+  onDelta: (delta: string) => void,
+  onThinking?: (thinking: string) => void
+): Promise<{ content: string; thinking: string; tokens: number; modelUsed: string }> {
+  if (!FIREWORKS_API_KEY) {
+    throw new Error('FIREWORKS_API_KEY is not configured')
+  }
+
+  const selectedModel = chooseModel(
+    FIREWORKS_MODEL,
+    FIREWORKS_REASONING_MODEL,
+    options.preferReasoning
+  )
+
+  const response = await fetch(FIREWORKS_BASE_URL, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${FIREWORKS_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: selectedModel,
+      messages: options.messages,
+      temperature: options.temperature,
+      max_tokens: options.maxTokens,
+      stream: true,
+      stream_options: { include_usage: true },
+    }),
+  })
+
+  if (!response.ok) {
+    const payload = await parseJsonSafe(response)
+    throw new Error(`Fireworks request failed (${response.status}): ${extractApiError(payload)}`)
+  }
+
+  const streamed = await readOpenAICompatibleStream(response, onDelta, onThinking)
+  return {
+    content: streamed.content,
+    thinking: streamed.thinking,
+    tokens: streamed.tokens,
+    modelUsed: `fireworks:${selectedModel}`,
+  }
+}
+
 async function callHuggingFaceStream(
   options: ChatOptions,
   onDelta: (delta: string) => void,
@@ -820,6 +913,7 @@ function resolveProviderOrder(): Provider[] {
   const hasSambaNova = Boolean(SAMBANOVA_API_KEY)
   const hasDeepSeek = Boolean(DEEPSEEK_API_KEY)
   const hasGroq = Boolean(GROQ_API_KEY)
+  const hasFireworks = Boolean(FIREWORKS_API_KEY)
   const hasCohere = Boolean(COHERE_API_KEY)
   const hasHF = Boolean(HF_TOKEN)
 
@@ -828,6 +922,7 @@ function resolveProviderOrder(): Provider[] {
     if (hasSambaNova) ordered.push('sambanova')
     if (hasDeepSeek) ordered.push('deepseek')
     if (hasGroq) ordered.push('groq')
+    if (hasFireworks) ordered.push('fireworks')
     if (hasCohere) ordered.push('cohere')
     if (hasHF) ordered.push('huggingface')
     return ordered
@@ -837,6 +932,7 @@ function resolveProviderOrder(): Provider[] {
     if (hasOpenRouter) ordered.push('openrouter')
     if (hasDeepSeek) ordered.push('deepseek')
     if (hasGroq) ordered.push('groq')
+    if (hasFireworks) ordered.push('fireworks')
     if (hasCohere) ordered.push('cohere')
     if (hasHF) ordered.push('huggingface')
     return ordered
@@ -846,6 +942,7 @@ function resolveProviderOrder(): Provider[] {
     if (hasOpenRouter) ordered.push('openrouter')
     if (hasSambaNova) ordered.push('sambanova')
     if (hasGroq) ordered.push('groq')
+    if (hasFireworks) ordered.push('fireworks')
     if (hasCohere) ordered.push('cohere')
     if (hasHF) ordered.push('huggingface')
     return ordered
@@ -855,6 +952,17 @@ function resolveProviderOrder(): Provider[] {
     if (hasOpenRouter) ordered.push('openrouter')
     if (hasSambaNova) ordered.push('sambanova')
     if (hasDeepSeek) ordered.push('deepseek')
+    if (hasFireworks) ordered.push('fireworks')
+    if (hasCohere) ordered.push('cohere')
+    if (hasHF) ordered.push('huggingface')
+    return ordered
+  }
+  if (AI_PROVIDER === 'fireworks' || AI_PROVIDER === 'fw') {
+    const ordered: Provider[] = ['fireworks']
+    if (hasOpenRouter) ordered.push('openrouter')
+    if (hasSambaNova) ordered.push('sambanova')
+    if (hasDeepSeek) ordered.push('deepseek')
+    if (hasGroq) ordered.push('groq')
     if (hasCohere) ordered.push('cohere')
     if (hasHF) ordered.push('huggingface')
     return ordered
@@ -865,6 +973,7 @@ function resolveProviderOrder(): Provider[] {
     if (hasSambaNova) ordered.push('sambanova')
     if (hasDeepSeek) ordered.push('deepseek')
     if (hasGroq) ordered.push('groq')
+    if (hasFireworks) ordered.push('fireworks')
     if (hasHF) ordered.push('huggingface')
     return ordered
   }
@@ -874,6 +983,7 @@ function resolveProviderOrder(): Provider[] {
     if (hasSambaNova) ordered.push('sambanova')
     if (hasDeepSeek) ordered.push('deepseek')
     if (hasGroq) ordered.push('groq')
+    if (hasFireworks) ordered.push('fireworks')
     if (hasCohere) ordered.push('cohere')
     return ordered
   }
@@ -883,6 +993,7 @@ function resolveProviderOrder(): Provider[] {
   if (hasSambaNova) ordered.push('sambanova')
   if (hasDeepSeek) ordered.push('deepseek')
   if (hasGroq) ordered.push('groq')
+  if (hasFireworks) ordered.push('fireworks')
   if (hasCohere) ordered.push('cohere')
   if (hasHF) ordered.push('huggingface')
   return ordered
@@ -891,7 +1002,7 @@ function resolveProviderOrder(): Provider[] {
 async function generateWithProviders(options: ChatOptions): Promise<{ content: string; tokens: number; modelUsed: string }> {
   const providers = resolveProviderOrder()
   if (providers.length === 0) {
-    throw new Error('No AI provider configured. Set SAMBANOVA_API_KEY, OPENROUTER_API_KEY, DEEPSEEK_API_KEY, GROQ_API_KEY, COHERE_API_KEY, or HF_TOKEN in .env.')
+    throw new Error('No AI provider configured. Set SAMBANOVA_API_KEY, OPENROUTER_API_KEY, DEEPSEEK_API_KEY, GROQ_API_KEY, FIREWORKS_API_KEY, COHERE_API_KEY, or HF_TOKEN in .env.')
   }
 
   const failures: string[] = []
@@ -914,6 +1025,11 @@ async function generateWithProviders(options: ChatOptions): Promise<{ content: s
       }
       if (provider === 'groq') {
         const result = await callGroq(options)
+        recordProviderSuccess(provider, result.modelUsed)
+        return result
+      }
+      if (provider === 'fireworks') {
+        const result = await callFireworks(options)
         recordProviderSuccess(provider, result.modelUsed)
         return result
       }
@@ -954,6 +1070,11 @@ async function generateWithProviders(options: ChatOptions): Promise<{ content: s
             recordProviderSuccess(provider, result.modelUsed)
             return result
           }
+          if (provider === 'fireworks') {
+            const result = await callFireworks(fallbackOptions)
+            recordProviderSuccess(provider, result.modelUsed)
+            return result
+          }
           if (provider === 'cohere') {
             const result = await callCohere(fallbackOptions)
             recordProviderSuccess(provider, result.modelUsed)
@@ -983,7 +1104,7 @@ async function generateWithProvidersStream(
 ): Promise<{ content: string; thinking: string; tokens: number; modelUsed: string }> {
   const providers = resolveProviderOrder()
   if (providers.length === 0) {
-    throw new Error('No AI provider configured. Set SAMBANOVA_API_KEY, OPENROUTER_API_KEY, DEEPSEEK_API_KEY, GROQ_API_KEY, COHERE_API_KEY, or HF_TOKEN in .env.')
+    throw new Error('No AI provider configured. Set SAMBANOVA_API_KEY, OPENROUTER_API_KEY, DEEPSEEK_API_KEY, GROQ_API_KEY, FIREWORKS_API_KEY, COHERE_API_KEY, or HF_TOKEN in .env.')
   }
 
   const failures: string[] = []
@@ -1013,6 +1134,11 @@ async function generateWithProvidersStream(
       }
       if (provider === 'groq') {
         const result = await callGroqStream(options, trackedDelta, onThinking)
+        recordProviderSuccess(provider, result.modelUsed)
+        return result
+      }
+      if (provider === 'fireworks') {
+        const result = await callFireworksStream(options, trackedDelta, onThinking)
         recordProviderSuccess(provider, result.modelUsed)
         return result
       }
@@ -1053,6 +1179,11 @@ async function generateWithProvidersStream(
           }
           if (provider === 'groq') {
             const result = await callGroqStream(fallbackOptions, trackedDelta, onThinking)
+            recordProviderSuccess(provider, result.modelUsed)
+            return result
+          }
+          if (provider === 'fireworks') {
+            const result = await callFireworksStream(fallbackOptions, trackedDelta, onThinking)
             recordProviderSuccess(provider, result.modelUsed)
             return result
           }
