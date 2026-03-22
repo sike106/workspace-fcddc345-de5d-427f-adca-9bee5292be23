@@ -48,10 +48,9 @@ export default function RootLayout({
         />
         <meta name="google-adsense-account" content="ca-pub-6942703237637346" />
         <script
-          dangerouslySetInnerHTML={{
-            __html:
-              "(function(s){s.dataset.zone='10763329',s.src='https://izcle.com/vignette.min.js'})([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')))",
-          }}
+          async
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6942703237637346"
+          crossOrigin="anonymous"
         />
       </head>
       <body

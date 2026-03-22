@@ -862,6 +862,7 @@ export default function JEEStudyBuddy() {
   const [authNotice, setAuthNotice] = useState('')
   const [guestTimeLeftMs, setGuestTimeLeftMs] = useState<number | null>(null)
   const guestSessionEndedRef = useRef(false)
+  const adScriptId = 'vignette-ad-script'
 
   const guestExpiresAtMs = useMemo(() => {
     if (!user?.isGuest) return null
@@ -937,6 +938,32 @@ export default function JEEStudyBuddy() {
     window.addEventListener('guest-session-expired', handleGuestExpired as EventListener)
     return () => window.removeEventListener('guest-session-expired', handleGuestExpired as EventListener)
   }, [forceGuestLogoutToAuth])
+
+  useEffect(() => {
+    if (loading) return
+    const isAdmin = user?.role === 'admin' || user?.role === 'teacher'
+    const existing = document.getElementById(adScriptId)
+
+    if (isAdmin) {
+      existing?.remove()
+      return
+    }
+
+    if (existing) return
+
+    const parent = document.head || document.body || document.documentElement
+    if (!parent) return
+
+    const script = document.createElement('script')
+    script.id = adScriptId
+    script.dataset.zone = '10763329'
+    script.src = 'https://izcle.com/vignette.min.js'
+    parent.appendChild(script)
+
+    return () => {
+      script.remove()
+    }
+  }, [loading, user?.role, adScriptId])
 
   useEffect(() => {
     if (!user?.isGuest) {
