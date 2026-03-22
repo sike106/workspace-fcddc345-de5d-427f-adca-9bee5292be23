@@ -47,6 +47,12 @@ export default function RootLayout({
           content="zVxYIbX0rDFt0nU2YsfLh8fSvFb81g4cQKKXt_V4oR0"
         />
         <meta name="google-adsense-account" content="ca-pub-6942703237637346" />
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "(function(s){s.dataset.zone='10763329',s.src='https://izcle.com/vignette.min.js'})([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')))",
+          }}
+        />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground relative min-h-screen overflow-x-hidden`}
