@@ -1463,7 +1463,6 @@ function MainLayout({
 
     const isStaff = user?.role === 'admin' || user?.role === 'teacher'
     const head = document.head || document.documentElement
-    const body = document.body || document.documentElement
 
     const removeAds = () => {
       const existing = document.querySelectorAll('script[data-ad-runtime="true"]')
@@ -1483,38 +1482,13 @@ function MainLayout({
       head.appendChild(script)
     }
 
-    const addBodyScript = (options: { src: string; attrs?: Record<string, string> }) => {
-      const script = document.createElement('script')
-      script.setAttribute('data-ad-runtime', 'true')
-      script.async = true
-      script.src = options.src
-      if (options.attrs) {
-        Object.entries(options.attrs).forEach(([key, value]) => {
-          script.setAttribute(key, value)
-        })
-      }
-      body.appendChild(script)
-    }
-
     const injectAds = () => {
       addHeadScript({
         src: 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6942703237637346',
         attrs: { crossorigin: 'anonymous' }
       })
       addHeadScript({
-        src: 'https://5gvci.com/act/files/tag.min.js?z=10782548',
-        attrs: { 'data-cfasync': 'false' }
-      })
-      addHeadScript({
         src: 'https://pl28976126.profitablecpmratenetwork.com/1e/86/ca/1e86cab17da918649fa4f1a098e2456a.js'
-      })
-      addBodyScript({
-        src: 'https://izcle.com/vignette.min.js',
-        attrs: { 'data-zone': '10782567' }
-      })
-      addBodyScript({
-        src: 'https://nap5k.com/tag.min.js',
-        attrs: { 'data-zone': '10782572' }
       })
     }
 
