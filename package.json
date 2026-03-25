@@ -3,7 +3,7 @@
   "version": "0.2.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --webpack -H 127.0.0.1 -p 3000",
+    "dev": "start http://localhost:3000 && next dev --webpack -H 127.0.0.1 -p 3000",
     "dev:clean": "node scripts/dev-clean.mjs",
     "build": "next build && node scripts/postbuild-copy.mjs",
     "start": "node .next/standalone/server.js",

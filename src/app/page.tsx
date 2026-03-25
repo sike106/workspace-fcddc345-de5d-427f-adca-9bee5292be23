@@ -258,6 +258,7 @@ interface AccountPreferences {
 }
 
 const GUEST_DEVICE_STORAGE_KEY = 'jee_guest_device_id_v1'
+const VIEW_STORAGE_KEY = 'jee_view_v1'
 const MAX_AVATAR_UPLOAD_BYTES = 1024 * 1024
 const ALLOWED_AVATAR_MIME_TYPES = new Set(['image/jpeg', 'image/jpg', 'image/png'])
 
@@ -862,7 +863,8 @@ export default function JEEStudyBuddy() {
   const [authNotice, setAuthNotice] = useState('')
   const [guestTimeLeftMs, setGuestTimeLeftMs] = useState<number | null>(null)
   const guestSessionEndedRef = useRef(false)
-  const adScriptId = 'vignette-ad-script'
+  const viewRestoredRef = useRef(false)
+  const overflowLockRef = useRef<{ html: string; body: string } | null>(null)
 
   const guestExpiresAtMs = useMemo(() => {
     if (!user?.isGuest) return null
@@ -895,11 +897,35 @@ export default function JEEStudyBuddy() {
 
   // Check auth on mount
   useEffect(() => {
-    api.auth.me()
+      api.auth.me()
       .then(data => {
         if (data?.user) {
           setUser(data.user)
-          setView(data.user.role === 'teacher' ? 'teacher' : 'dashboard')
+          const defaultView = data.user.role === 'teacher' ? 'teacher' : 'dashboard'
+          let nextView = defaultView
+
+          if (typeof window !== 'undefined') {
+            const stored = window.sessionStorage.getItem(VIEW_STORAGE_KEY) as View | null
+            const isStaff = data.user.role === 'admin' || data.user.role === 'teacher'
+            const validViews = new Set<View>([
+              'dashboard',
+              'account',
+              'revision',
+              'pyqs',
+              'mock',
+              'analytics',
+              'teacher',
+              'mock-test',
+              'ai-tutor',
+              'doubts',
+              'ideas'
+            ])
+            if (stored && validViews.has(stored) && (stored !== 'teacher' || isStaff)) {
+              nextView = stored
+            }
+          }
+
+          setView(nextView)
           setAuthNotice('')
         } else {
           setUser(null)
@@ -940,30 +966,53 @@ export default function JEEStudyBuddy() {
   }, [forceGuestLogoutToAuth])
 
   useEffect(() => {
-    if (loading) return
-    const isAdmin = user?.role === 'admin' || user?.role === 'teacher'
-    const existing = document.getElementById(adScriptId)
+    if (typeof window === 'undefined') return
+    if (view === 'auth') return
+    window.sessionStorage.setItem(VIEW_STORAGE_KEY, view)
+  }, [view])
 
-    if (isAdmin) {
-      existing?.remove()
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+
+    if (view === 'ai-tutor') {
+      if (!overflowLockRef.current) {
+        overflowLockRef.current = {
+          html: document.documentElement.style.overflow || '',
+          body: document.body.style.overflow || ''
+        }
+      }
+      document.documentElement.style.overflow = 'hidden'
+      document.body.style.overflow = 'hidden'
       return
     }
 
-    if (existing) return
-
-    const parent = document.head || document.body || document.documentElement
-    if (!parent) return
-
-    const script = document.createElement('script')
-    script.id = adScriptId
-    script.dataset.zone = '10763329'
-    script.src = 'https://izcle.com/vignette.min.js'
-    parent.appendChild(script)
-
-    return () => {
-      script.remove()
+    if (overflowLockRef.current) {
+      document.documentElement.style.overflow = overflowLockRef.current.html
+      document.body.style.overflow = overflowLockRef.current.body
+      overflowLockRef.current = null
     }
-  }, [loading, user?.role, adScriptId])
+  }, [view])
+
+  useEffect(() => {
+    if (!user) {
+      viewRestoredRef.current = false
+    }
+  }, [user])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (!user || viewRestoredRef.current) return
+
+    const stored = window.sessionStorage.getItem(VIEW_STORAGE_KEY) as View | null
+    const isStaff = user.role === 'teacher' || user.role === 'admin'
+    const isAllowed = stored && stored !== 'auth' && (stored !== 'teacher' || isStaff)
+
+    if (isAllowed && stored !== view) {
+      setView(stored as View)
+    }
+
+    viewRestoredRef.current = true
+  }, [user, view])
 
   useEffect(() => {
     if (!user?.isGuest) {
@@ -1389,6 +1438,7 @@ function MainLayout({
   const suspendedUntilMs = user?.suspendedUntil ? new Date(user.suspendedUntil).getTime() : null
   const [currentTimeMs, setCurrentTimeMs] = useState(Date.now())
   const [isMobile, setIsMobile] = useState(false)
+  const adsInjectedRef = useRef(false)
   const isSuspended =
     typeof suspendedUntilMs === 'number' &&
     Number.isFinite(suspendedUntilMs) &&
@@ -1410,23 +1460,21 @@ function MainLayout({
 
   useEffect(() => {
     if (typeof document === 'undefined') return
-    if (view === 'auth') return
-    if (user?.role === 'admin') return
 
+    const isStaff = user?.role === 'admin' || user?.role === 'teacher'
     const head = document.head || document.documentElement
-    const existing = head.querySelectorAll('script[data-monetag-runtime="true"]')
-    existing.forEach(node => node.parentElement?.removeChild(node))
+    const body = document.body || document.documentElement
 
-    const addScript = (options: { src?: string; inline?: string; attrs?: Record<string, string> }) => {
+    const removeAds = () => {
+      const existing = document.querySelectorAll('script[data-ad-runtime="true"]')
+      existing.forEach(node => node.parentElement?.removeChild(node))
+    }
+
+    const addHeadScript = (options: { src: string; attrs?: Record<string, string> }) => {
       const script = document.createElement('script')
-      script.setAttribute('data-monetag-runtime', 'true')
-      if (options.src) {
-        script.src = options.src
-        script.async = true
-      }
-      if (options.inline) {
-        script.text = options.inline
-      }
+      script.setAttribute('data-ad-runtime', 'true')
+      script.async = true
+      script.src = options.src
       if (options.attrs) {
         Object.entries(options.attrs).forEach(([key, value]) => {
           script.setAttribute(key, value)
@@ -1435,18 +1483,52 @@ function MainLayout({
       head.appendChild(script)
     }
 
-    addScript({
-      src: 'https://5gvci.com/act/files/tag.min.js?z=10782548',
-      attrs: { 'data-cfasync': 'false' }
-    })
-    addScript({
-      inline:
-        "(function(s){s.dataset.zone='10782567',s.src='https://izcle.com/vignette.min.js'})([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')))"
-    })
-    addScript({
-      inline:
-        "(function(s){s.dataset.zone='10782572',s.src='https://nap5k.com/tag.min.js'})([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')))"
-    })
+    const addBodyScript = (options: { src: string; attrs?: Record<string, string> }) => {
+      const script = document.createElement('script')
+      script.setAttribute('data-ad-runtime', 'true')
+      script.async = true
+      script.src = options.src
+      if (options.attrs) {
+        Object.entries(options.attrs).forEach(([key, value]) => {
+          script.setAttribute(key, value)
+        })
+      }
+      body.appendChild(script)
+    }
+
+    const injectAds = () => {
+      addHeadScript({
+        src: 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6942703237637346',
+        attrs: { crossorigin: 'anonymous' }
+      })
+      addHeadScript({
+        src: 'https://5gvci.com/act/files/tag.min.js?z=10782548',
+        attrs: { 'data-cfasync': 'false' }
+      })
+      addHeadScript({
+        src: 'https://pl28976126.profitablecpmratenetwork.com/1e/86/ca/1e86cab17da918649fa4f1a098e2456a.js'
+      })
+      addBodyScript({
+        src: 'https://izcle.com/vignette.min.js',
+        attrs: { 'data-zone': '10782567' }
+      })
+      addBodyScript({
+        src: 'https://nap5k.com/tag.min.js',
+        attrs: { 'data-zone': '10782572' }
+      })
+    }
+
+    const adBlockedViews = new Set<View>(['ai-tutor', 'pyqs', 'mock', 'mock-test'])
+
+    if (view === 'auth' || isStaff || adBlockedViews.has(view)) {
+      removeAds()
+      return
+    }
+
+    if (adsInjectedRef.current) return
+
+    injectAds()
+    adsInjectedRef.current = true
   }, [user?.role, view])
 
   useEffect(() => {
