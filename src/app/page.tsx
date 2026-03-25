@@ -1409,6 +1409,47 @@ function MainLayout({
   }, [isMobile, setSidebarOpen])
 
   useEffect(() => {
+    if (typeof document === 'undefined') return
+    if (view === 'auth') return
+    if (user?.role === 'admin') return
+
+    const head = document.head || document.documentElement
+    const existing = head.querySelectorAll('script[data-monetag-runtime="true"]')
+    existing.forEach(node => node.parentElement?.removeChild(node))
+
+    const addScript = (options: { src?: string; inline?: string; attrs?: Record<string, string> }) => {
+      const script = document.createElement('script')
+      script.setAttribute('data-monetag-runtime', 'true')
+      if (options.src) {
+        script.src = options.src
+        script.async = true
+      }
+      if (options.inline) {
+        script.text = options.inline
+      }
+      if (options.attrs) {
+        Object.entries(options.attrs).forEach(([key, value]) => {
+          script.setAttribute(key, value)
+        })
+      }
+      head.appendChild(script)
+    }
+
+    addScript({
+      src: 'https://5gvci.com/act/files/tag.min.js?z=10782548',
+      attrs: { 'data-cfasync': 'false' }
+    })
+    addScript({
+      inline:
+        "(function(s){s.dataset.zone='10782567',s.src='https://izcle.com/vignette.min.js'})([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')))"
+    })
+    addScript({
+      inline:
+        "(function(s){s.dataset.zone='10782572',s.src='https://nap5k.com/tag.min.js'})([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')))"
+    })
+  }, [user?.role, view])
+
+  useEffect(() => {
     if (!isSuspended) return
     const timer = setInterval(() => setCurrentTimeMs(Date.now()), 1000)
     return () => clearInterval(timer)
