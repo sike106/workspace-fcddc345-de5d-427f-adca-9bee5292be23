@@ -60,12 +60,6 @@ export default function RootLayout({
         <script
           dangerouslySetInnerHTML={{
             __html:
-              "(function(s){s.dataset.zone='10782565',s.src='https://al5sm.com/tag.min.js'})([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')))"
-          }}
-        />
-        <script
-          dangerouslySetInnerHTML={{
-            __html:
               "(function(s){s.dataset.zone='10782567',s.src='https://izcle.com/vignette.min.js'})([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')))"
           }}
         />
