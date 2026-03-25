@@ -1482,13 +1482,6 @@ function MainLayout({
       head.appendChild(script)
     }
 
-    const addInlineScript = (code: string) => {
-      const script = document.createElement('script')
-      script.setAttribute('data-ad-runtime', 'true')
-      script.text = code
-      head.appendChild(script)
-    }
-
     const injectAds = () => {
       addHeadScript({
         src: 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6942703237637346',
@@ -1497,16 +1490,6 @@ function MainLayout({
       addHeadScript({
         src: 'https://pl28976126.profitablecpmratenetwork.com/1e/86/ca/1e86cab17da918649fa4f1a098e2456a.js'
       })
-      addInlineScript(`(function(ifa){
-var d = document,
-    s = d.createElement('script'),
-    l = d.scripts[d.scripts.length - 1];
-s.settings = ifa || {};
-s.src = "//unsightly-listen.com/bqXiV.s/diGQlM0-Y/W/cQ/We/md9cuRZNU/lVkVP/TXYZ4sOtTxka0qMMzrMztiNij_gk5NOFTMQ/zYNxwG";
-s.async = true;
-s.referrerPolicy = 'no-referrer-when-downgrade';
-l.parentNode.insertBefore(s, l);
-})({});`)
     }
 
     const adBlockedViews = new Set<View>(['ai-tutor', 'pyqs', 'mock', 'mock-test'])
