@@ -1586,7 +1586,7 @@ function MainLayout({
       </motion.aside>
 
       {/* Main Content */}
-      <main className="flex-1 min-h-0 overflow-auto">
+      <main className={`flex-1 min-h-0 ${view === 'ai-tutor' ? 'overflow-hidden' : 'overflow-auto'}`}>
         {/* Header */}
         <header className="bg-slate-800/30 backdrop-blur-sm border-b border-slate-700 px-4 md:px-6 py-3 md:py-4 flex items-center justify-between sticky top-0 z-10 shrink-0">
           <button
@@ -1613,7 +1613,7 @@ function MainLayout({
         </header>
 
         {/* Content */}
-        <div className="p-4 md:p-6">
+        <div className={`p-4 md:p-6 ${view === 'ai-tutor' ? 'flex-1 min-h-0 overflow-hidden flex flex-col' : ''}`}>
           {isSuspended ? (
             <SuspendedModeNotice
               view={view}
