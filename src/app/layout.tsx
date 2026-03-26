@@ -60,6 +60,18 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground relative min-h-screen overflow-x-hidden`}
       >
+        {/* hello */}
+        <ins
+          className="adsbygoogle"
+          style={{ display: 'block' }}
+          data-ad-client="ca-pub-6942703237637346"
+          data-ad-slot="4214143646"
+          data-ad-format="auto"
+          data-full-width-responsive="true"
+        />
+        <Script id="adsense-init" strategy="afterInteractive">
+          {`(adsbygoogle = window.adsbygoogle || []).push({});`}
+        </Script>
         <Script id="mathjax-config" strategy="beforeInteractive">
           {`
             window.MathJax = {
