@@ -864,7 +864,14 @@ export default function JEEStudyBuddy() {
   const [guestTimeLeftMs, setGuestTimeLeftMs] = useState<number | null>(null)
   const guestSessionEndedRef = useRef(false)
   const viewRestoredRef = useRef(false)
-  const overflowLockRef = useRef<{ html: string; body: string } | null>(null)
+  const overflowLockRef = useRef<{
+    htmlOverflow: string
+    bodyOverflow: string
+    bodyPosition: string
+    bodyTop: string
+    bodyWidth: string
+    scrollY: number
+  } | null>(null)
 
   const guestExpiresAtMs = useMemo(() => {
     if (!user?.isGuest) return null
@@ -972,23 +979,48 @@ export default function JEEStudyBuddy() {
   }, [view])
 
   useEffect(() => {
+    if (typeof window === 'undefined') return
+    if ('scrollRestoration' in window.history) {
+      window.history.scrollRestoration = 'manual'
+    }
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (view === 'auth') return
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+  }, [view])
+
+  useEffect(() => {
     if (typeof document === 'undefined') return
 
     if (view === 'ai-tutor') {
       if (!overflowLockRef.current) {
+        const scrollY = window.scrollY || window.pageYOffset || 0
         overflowLockRef.current = {
-          html: document.documentElement.style.overflow || '',
-          body: document.body.style.overflow || ''
+          htmlOverflow: document.documentElement.style.overflow || '',
+          bodyOverflow: document.body.style.overflow || '',
+          bodyPosition: document.body.style.position || '',
+          bodyTop: document.body.style.top || '',
+          bodyWidth: document.body.style.width || '',
+          scrollY
         }
       }
       document.documentElement.style.overflow = 'hidden'
       document.body.style.overflow = 'hidden'
+      document.body.style.position = 'fixed'
+      document.body.style.top = `-${overflowLockRef.current.scrollY}px`
+      document.body.style.width = '100%'
       return
     }
 
     if (overflowLockRef.current) {
-      document.documentElement.style.overflow = overflowLockRef.current.html
-      document.body.style.overflow = overflowLockRef.current.body
+      document.documentElement.style.overflow = overflowLockRef.current.htmlOverflow
+      document.body.style.overflow = overflowLockRef.current.bodyOverflow
+      document.body.style.position = overflowLockRef.current.bodyPosition
+      document.body.style.top = overflowLockRef.current.bodyTop
+      document.body.style.width = overflowLockRef.current.bodyWidth
+      window.scrollTo({ top: overflowLockRef.current.scrollY, left: 0, behavior: 'auto' })
       overflowLockRef.current = null
     }
   }, [view])
@@ -1483,10 +1515,6 @@ function MainLayout({
     }
 
     const injectAds = () => {
-      addHeadScript({
-        src: 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6942703237637346',
-        attrs: { crossorigin: 'anonymous' }
-      })
       addHeadScript({
         src: 'https://pl28976126.profitablecpmratenetwork.com/1e/86/ca/1e86cab17da918649fa4f1a098e2456a.js'
       })

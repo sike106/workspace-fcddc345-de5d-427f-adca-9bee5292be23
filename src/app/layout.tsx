@@ -51,27 +51,10 @@ export default function RootLayout({
           content="995b90fd6f777b9263494e4bb15bd186f5c9de5d"
         />
         <meta name="google-adsense-account" content="ca-pub-6942703237637346" />
-        <script
-          async
-          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6942703237637346"
-          crossOrigin="anonymous"
-        />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground relative min-h-screen overflow-x-hidden`}
       >
-        {/* hello */}
-        <ins
-          className="adsbygoogle"
-          style={{ display: 'block' }}
-          data-ad-client="ca-pub-6942703237637346"
-          data-ad-slot="4214143646"
-          data-ad-format="auto"
-          data-full-width-responsive="true"
-        />
-        <Script id="adsense-init" strategy="afterInteractive">
-          {`(adsbygoogle = window.adsbygoogle || []).push({});`}
-        </Script>
         <Script id="mathjax-config" strategy="beforeInteractive">
           {`
             window.MathJax = {
