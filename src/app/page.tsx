@@ -9,7 +9,7 @@ import {
   BookOpen, Brain, BarChart3, FileText, Clock, User, LogOut, Menu, X,
   Send, Lightbulb, ChevronRight, Play, CheckCircle, XCircle, AlertCircle,
   TrendingUp, Target, Award, Zap, Moon, Sun, Settings, Users, Plus,
-  FileQuestion, ClipboardList, RefreshCw, Download, ChevronDown, Home, Share2, Trash2, Bot, MessageSquare, Sparkles, Search, Upload
+  FileQuestion, ClipboardList, RefreshCw, Download, ChevronDown, Home, Share2, Trash2, Bot, MessageSquare, Sparkles, Search, Upload, Library
 } from 'lucide-react'
 import { MathText } from '@/components/math-text'
 import { firebaseAuth, firebaseDb, googleAuthProvider } from '@/lib/firebase'
@@ -20,7 +20,7 @@ import {
 } from '@/lib/guest-config'
 
 // Types
-type View = 'auth' | 'dashboard' | 'account' | 'revision' | 'pyqs' | 'mock' | 'analytics' | 'teacher' | 'mock-test' | 'ai-tutor' | 'doubts' | 'ideas'
+type View = 'auth' | 'dashboard' | 'study-material' | 'account' | 'revision' | 'pyqs' | 'mock' | 'analytics' | 'teacher' | 'mock-test' | 'ai-tutor' | 'doubts' | 'ideas'
 type AuthMode = 'login' | 'signup'
 type AIMode = 'exam' | 'strict' | 'friendly'
 
@@ -938,6 +938,7 @@ export default function JEEStudyBuddy() {
             const isStaff = data.user.role === 'admin' || data.user.role === 'teacher'
             const validViews = new Set<View>([
               'dashboard',
+              'study-material',
               'account',
               'revision',
               'pyqs',
@@ -1563,6 +1564,7 @@ function MainLayout({
 
   const navItems = isStaff ? [
     { id: 'dashboard', label: 'Dashboard', icon: Home },
+    { id: 'study-material', label: 'Study Material', icon: Library },
     { id: 'ai-tutor', label: 'AI Buddy', icon: Bot },
     { id: 'doubts', label: 'Doubt Clearing', icon: MessageSquare },
     { id: 'ideas', label: 'Idea Box', icon: Lightbulb },
@@ -1574,6 +1576,7 @@ function MainLayout({
     { id: 'account', label: 'My Account', icon: User },
   ] : [
     { id: 'dashboard', label: 'Dashboard', icon: Home },
+    { id: 'study-material', label: 'Study Material', icon: Library },
     { id: 'ai-tutor', label: 'AI Buddy', icon: Bot },
     { id: 'doubts', label: 'Doubt Clearing', icon: MessageSquare },
     { id: 'ideas', label: 'Idea Box', icon: Lightbulb },
@@ -1730,6 +1733,7 @@ function MainLayout({
           ) : (
             <AnimatePresence mode="wait">
               {view === 'dashboard' && <Dashboard key="dashboard" user={user} />}
+              {view === 'study-material' && <StudyMaterial key="study-material" user={user} />}
               {view === 'account' && (
                 <MyAccount
                   key={`account-${user?.id || 'anon'}`}
@@ -2016,7 +2020,6 @@ function GuestSessionFloatingTimer({ timeLeftMs }: { timeLeftMs: number }) {
 function Dashboard({ user }: { user: User | null }) {
   const [analytics, setAnalytics] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const isGuest = Boolean(user?.isGuest)
 
   useEffect(() => {
     api.analytics.dashboard()
@@ -2113,11 +2116,47 @@ function Dashboard({ user }: { user: User | null }) {
         />
       </div>
 
-      {/* Study Material */}
+      {/* Weak Areas */}
+      {analytics?.weakAreas?.length > 0 && (
+        <div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700">
+          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+            <AlertCircle className="w-5 h-5 text-orange-400" />
+            Areas to Improve
+          </h3>
+          <div className="flex flex-wrap gap-2">
+            {analytics.weakAreas.slice(0, 5).map((area: string) => (
+              <span
+                key={area}
+                className="px-3 py-1 bg-orange-500/20 text-orange-300 rounded-full text-sm"
+              >
+                {area}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </motion.div>
+  )
+}
+
+function StudyMaterial({ user }: { user: User | null }) {
+  const isGuest = Boolean(user?.isGuest)
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="space-y-6"
+    >
+      <div className="bg-linear-to-r from-blue-500/20 to-purple-500/20 rounded-2xl p-6 border border-blue-500/30">
+        <h2 className="text-2xl font-bold mb-2">Study Material Library</h2>
+        <p className="text-slate-400">Class 11, Class 12, aur JEE ke curated books ka PDF collection.</p>
+      </div>
+
       <div className="relative bg-slate-800/50 rounded-2xl p-6 border border-slate-700">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold">Study Material</h3>
-          <span className="text-xs text-slate-400">PDF books</span>
+          <h3 className="text-lg font-semibold">Books by Level</h3>
+          <span className="text-xs text-slate-400">PDF downloads</span>
         </div>
         <div className={`grid grid-cols-1 md:grid-cols-3 gap-4 ${isGuest ? 'blur-sm select-none pointer-events-none' : ''}`}>
           <div className="bg-slate-900/40 border border-slate-700 rounded-xl p-4">
@@ -2183,26 +2222,6 @@ function Dashboard({ user }: { user: User | null }) {
           </div>
         )}
       </div>
-
-      {/* Weak Areas */}
-      {analytics?.weakAreas?.length > 0 && (
-        <div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700">
-          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-            <AlertCircle className="w-5 h-5 text-orange-400" />
-            Areas to Improve
-          </h3>
-          <div className="flex flex-wrap gap-2">
-            {analytics.weakAreas.slice(0, 5).map((area: string) => (
-              <span
-                key={area}
-                className="px-3 py-1 bg-orange-500/20 text-orange-300 rounded-full text-sm"
-              >
-                {area}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
     </motion.div>
   )
 }
