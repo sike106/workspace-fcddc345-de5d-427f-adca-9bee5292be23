@@ -853,6 +853,28 @@ const PYQ_EXAM_SUBJECTS: Record<string, string[]> = {
   'IAT (IISER Aptitude Test)': ['Physics', 'Chemistry', 'Mathematics', 'Biology']
 }
 
+const STUDY_MATERIAL = {
+  class11: [
+    { title: 'NCERT Physics Class 11', pdf: '/study-material/class-11-ncert-physics.pdf' },
+    { title: 'NCERT Chemistry Class 11', pdf: '/study-material/class-11-ncert-chemistry.pdf' },
+    { title: 'NCERT Mathematics Class 11', pdf: '/study-material/class-11-ncert-mathematics.pdf' },
+    { title: 'Concepts of Physics Vol 1 (H.C. Verma)', pdf: '/study-material/class-11-hc-verma-vol-1.pdf' }
+  ],
+  class12: [
+    { title: 'NCERT Physics Class 12', pdf: '/study-material/class-12-ncert-physics.pdf' },
+    { title: 'NCERT Chemistry Class 12', pdf: '/study-material/class-12-ncert-chemistry.pdf' },
+    { title: 'NCERT Mathematics Class 12', pdf: '/study-material/class-12-ncert-mathematics.pdf' },
+    { title: 'Concepts of Physics Vol 2 (H.C. Verma)', pdf: '/study-material/class-12-hc-verma-vol-2.pdf' }
+  ],
+  jee: [
+    { title: 'IIT JEE Physics (D.C. Pandey)', pdf: '/study-material/jee-dc-pandey-physics.pdf' },
+    { title: 'Physical Chemistry (P. Bahadur)', pdf: '/study-material/jee-p-bahadur-physical-chemistry.pdf' },
+    { title: 'Mathematics (Cengage Series)', pdf: '/study-material/jee-cengage-mathematics.pdf' },
+    { title: 'Organic Chemistry (M.S. Chauhan)', pdf: '/study-material/jee-ms-chauhan-organic-chemistry.pdf' },
+    { title: 'Inorganic Chemistry (J.D. Lee)', pdf: '/study-material/jee-jd-lee-inorganic-chemistry.pdf' }
+  ]
+}
+
 export default function JEEStudyBuddy() {
   const [view, setView] = useState<View>('auth')
   const [authMode, setAuthMode] = useState<AuthMode>('login')
@@ -1707,7 +1729,7 @@ function MainLayout({
             />
           ) : (
             <AnimatePresence mode="wait">
-              {view === 'dashboard' && <Dashboard key="dashboard" />}
+              {view === 'dashboard' && <Dashboard key="dashboard" user={user} />}
               {view === 'account' && (
                 <MyAccount
                   key={`account-${user?.id || 'anon'}`}
@@ -1991,9 +2013,10 @@ function GuestSessionFloatingTimer({ timeLeftMs }: { timeLeftMs: number }) {
 }
 
 // Dashboard Component
-function Dashboard() {
+function Dashboard({ user }: { user: User | null }) {
   const [analytics, setAnalytics] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const isGuest = Boolean(user?.isGuest)
 
   useEffect(() => {
     api.analytics.dashboard()
@@ -2088,6 +2111,77 @@ function Dashboard() {
           description="Test your preparation"
           color="green"
         />
+      </div>
+
+      {/* Study Material */}
+      <div className="relative bg-slate-800/50 rounded-2xl p-6 border border-slate-700">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold">Study Material</h3>
+          <span className="text-xs text-slate-400">PDF books</span>
+        </div>
+        <div className={`grid grid-cols-1 md:grid-cols-3 gap-4 ${isGuest ? 'blur-sm select-none pointer-events-none' : ''}`}>
+          <div className="bg-slate-900/40 border border-slate-700 rounded-xl p-4">
+            <h4 className="text-sm font-semibold text-slate-200 mb-3">Class 11</h4>
+            <ul className="space-y-2 text-sm text-slate-300">
+              {STUDY_MATERIAL.class11.map(item => (
+                <li key={item.title} className="flex items-center justify-between gap-3">
+                  <span className="truncate">{item.title}</span>
+                  <a
+                    href={item.pdf}
+                    download
+                    className="text-xs px-2 py-1 rounded-full bg-blue-500/20 text-blue-200 hover:bg-blue-500/30 transition-colors shrink-0"
+                  >
+                    PDF
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="bg-slate-900/40 border border-slate-700 rounded-xl p-4">
+            <h4 className="text-sm font-semibold text-slate-200 mb-3">Class 12</h4>
+            <ul className="space-y-2 text-sm text-slate-300">
+              {STUDY_MATERIAL.class12.map(item => (
+                <li key={item.title} className="flex items-center justify-between gap-3">
+                  <span className="truncate">{item.title}</span>
+                  <a
+                    href={item.pdf}
+                    download
+                    className="text-xs px-2 py-1 rounded-full bg-blue-500/20 text-blue-200 hover:bg-blue-500/30 transition-colors shrink-0"
+                  >
+                    PDF
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="bg-slate-900/40 border border-slate-700 rounded-xl p-4">
+            <h4 className="text-sm font-semibold text-slate-200 mb-3">JEE</h4>
+            <ul className="space-y-2 text-sm text-slate-300">
+              {STUDY_MATERIAL.jee.map(item => (
+                <li key={item.title} className="flex items-center justify-between gap-3">
+                  <span className="truncate">{item.title}</span>
+                  <a
+                    href={item.pdf}
+                    download
+                    className="text-xs px-2 py-1 rounded-full bg-blue-500/20 text-blue-200 hover:bg-blue-500/30 transition-colors shrink-0"
+                  >
+                    PDF
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+        {isGuest && (
+          <div className="absolute inset-0 rounded-2xl bg-slate-950/70 border border-slate-700 flex items-center justify-center">
+            <div className="text-center max-w-sm px-4">
+              <p className="text-sm font-semibold text-slate-200">Study Material is locked for guests</p>
+              <p className="text-xs text-slate-400 mt-1">
+                Login karo to Class 11, Class 12 aur JEE books ke PDFs download kar paoge.
+              </p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Weak Areas */}
