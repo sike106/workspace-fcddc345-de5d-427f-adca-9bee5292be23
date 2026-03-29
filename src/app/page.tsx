@@ -915,8 +915,8 @@ export default function JEEStudyBuddy() {
       .then(data => {
         if (data?.user) {
           setUser(data.user)
-          const defaultView = data.user.role === 'teacher' ? 'teacher' : 'dashboard'
-          let nextView = defaultView
+          const defaultView: View = data.user.role === 'teacher' ? 'teacher' : 'dashboard'
+          let nextView: View = defaultView
 
           if (typeof window !== 'undefined') {
             const stored = window.sessionStorage.getItem(VIEW_STORAGE_KEY) as View | null
@@ -2137,9 +2137,12 @@ function StudyMaterial({ user }: { user: User | null }) {
   const [uploadTitle, setUploadTitle] = useState('')
   const [uploadFile, setUploadFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState<{ loaded: number; total: number; percent: number } | null>(null)
   const [uploadMessage, setUploadMessage] = useState('')
   const [uploadError, setUploadError] = useState('')
   const uploadInputRef = useRef<HTMLInputElement | null>(null)
+
+  const formatMb = (bytes: number) => `${(bytes / (1024 * 1024)).toFixed(2)} MB`
 
   const classMeta = {
     'class-11': {
@@ -2226,22 +2229,42 @@ function StudyMaterial({ user }: { user: User | null }) {
     }
 
     setUploading(true)
+    setUploadProgress({ loaded: 0, total: uploadFile.size || 0, percent: 0 })
     try {
       const formData = new FormData()
       formData.append('file', uploadFile)
       formData.append('classId', uploadClass)
       formData.append('subject', uploadSubject)
       formData.append('title', uploadTitle.trim())
-
-      const response = await fetch('/api/study-material/upload', {
-        method: 'POST',
-        body: formData
+      const responsePayload = await new Promise<any>((resolve, reject) => {
+        const xhr = new XMLHttpRequest()
+        xhr.open('POST', '/api/study-material/upload')
+        xhr.responseType = 'text'
+        xhr.upload.onprogress = (event) => {
+          if (!event.lengthComputable) return
+          const percent = Math.round((event.loaded / event.total) * 100)
+          setUploadProgress({ loaded: event.loaded, total: event.total, percent })
+        }
+        xhr.onload = () => {
+          const ok = xhr.status >= 200 && xhr.status < 300
+          let payload: any = {}
+          if (xhr.responseText) {
+            try {
+              payload = JSON.parse(xhr.responseText)
+            } catch {
+              payload = {}
+            }
+          }
+          if (!ok) {
+            reject(new Error(payload?.error || 'Upload failed. Please try again.'))
+            return
+          }
+          resolve(payload)
+        }
+        xhr.onerror = () => reject(new Error('Upload failed. Please try again.'))
+        xhr.onabort = () => reject(new Error('Upload cancelled.'))
+        xhr.send(formData)
       })
-
-      if (!response.ok) {
-        const payload = await response.json().catch(() => ({}))
-        throw new Error(payload?.error || 'Upload failed. Please try again.')
-      }
 
       setUploadMessage('PDF uploaded successfully.')
       setUploadFile(null)
@@ -2249,6 +2272,7 @@ function StudyMaterial({ user }: { user: User | null }) {
       if (uploadInputRef.current) {
         uploadInputRef.current.value = ''
       }
+      setUploadProgress(null)
       await refreshMaterials()
     } catch (err: any) {
       setUploadError(err?.message || 'Upload failed. Please try again.')
@@ -2345,7 +2369,10 @@ function StudyMaterial({ user }: { user: User | null }) {
                 ref={uploadInputRef}
                 type="file"
                 accept="application/pdf"
-                onChange={event => setUploadFile(event.target.files?.[0] ?? null)}
+                onChange={event => {
+                  setUploadProgress(null)
+                  setUploadFile(event.target.files?.[0] ?? null)
+                }}
                 className="w-full text-xs text-slate-300 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-700 file:px-3 file:py-2 file:text-xs file:text-white hover:file:bg-slate-600"
               />
               <button
@@ -2357,6 +2384,27 @@ function StudyMaterial({ user }: { user: User | null }) {
                 {uploading ? 'Uploading...' : 'Upload PDF'}
               </button>
             </div>
+            {uploadFile && (
+              <p className="text-xs text-slate-400">
+                File size: {formatMb(uploadFile.size)}
+              </p>
+            )}
+            {uploadProgress && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs text-slate-400">
+                  <span>
+                    Uploaded {formatMb(uploadProgress.loaded)} / {formatMb(uploadProgress.total || 1)}
+                  </span>
+                  <span>{uploadProgress.percent}%</span>
+                </div>
+                <div className="h-2 rounded-full bg-slate-700 overflow-hidden">
+                  <div
+                    className="h-full bg-linear-to-r from-blue-500 to-purple-500 transition-all"
+                    style={{ width: `${uploadProgress.percent}%` }}
+                  />
+                </div>
+              </div>
+            )}
             {(uploadMessage || uploadError) && (
               <p className={`text-xs ${uploadError ? 'text-red-300' : 'text-emerald-300'}`}>
                 {uploadError || uploadMessage}
