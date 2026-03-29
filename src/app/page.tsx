@@ -2134,6 +2134,7 @@ function StudyMaterial({ user }: { user: User | null }) {
   const [materialsError, setMaterialsError] = useState('')
   const [uploadClass, setUploadClass] = useState<'class-11' | 'class-12' | 'jee'>('class-11')
   const [uploadSubject, setUploadSubject] = useState<'Physics' | 'Chemistry' | 'Mathematics'>('Physics')
+  const [uploadTitle, setUploadTitle] = useState('')
   const [uploadFile, setUploadFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
   const [uploadMessage, setUploadMessage] = useState('')
@@ -2219,6 +2220,10 @@ function StudyMaterial({ user }: { user: User | null }) {
       setUploadError('Please select a PDF to upload.')
       return
     }
+    if (!uploadTitle.trim()) {
+      setUploadError('Please enter a book title.')
+      return
+    }
 
     setUploading(true)
     try {
@@ -2226,6 +2231,7 @@ function StudyMaterial({ user }: { user: User | null }) {
       formData.append('file', uploadFile)
       formData.append('classId', uploadClass)
       formData.append('subject', uploadSubject)
+      formData.append('title', uploadTitle.trim())
 
       const response = await fetch('/api/study-material/upload', {
         method: 'POST',
@@ -2239,6 +2245,7 @@ function StudyMaterial({ user }: { user: User | null }) {
 
       setUploadMessage('PDF uploaded successfully.')
       setUploadFile(null)
+      setUploadTitle('')
       if (uploadInputRef.current) {
         uploadInputRef.current.value = ''
       }
@@ -2326,6 +2333,13 @@ function StudyMaterial({ user }: { user: User | null }) {
                 </button>
               ))}
             </div>
+            <input
+              type="text"
+              value={uploadTitle}
+              onChange={event => setUploadTitle(event.target.value)}
+              placeholder="Enter book title (shown on card)"
+              className="w-full rounded-xl border border-slate-700 bg-slate-900/40 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-blue-500"
+            />
             <div className="flex flex-col md:flex-row md:items-center gap-3">
               <input
                 ref={uploadInputRef}

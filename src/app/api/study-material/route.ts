@@ -47,6 +47,21 @@ async function listPdfFiles(dir: string) {
   }
 }
 
+async function readTitleMeta(dir: string, fileName: string) {
+  try {
+    const baseName = path.parse(fileName).name
+    const metaPath = path.join(dir, `${baseName}.json`)
+    const raw = await fs.readFile(metaPath, 'utf-8')
+    const parsed = JSON.parse(raw)
+    if (parsed && typeof parsed.title === 'string' && parsed.title.trim()) {
+      return parsed.title.trim()
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
 export async function GET(_request: NextRequest) {
   const baseDir = path.join(process.cwd(), 'public', 'study-material')
   const items: MaterialItem[] = []
@@ -57,8 +72,9 @@ export async function GET(_request: NextRequest) {
       const files = await listPdfFiles(fullPath)
 
       for (const file of files) {
+        const metaTitle = await readTitleMeta(fullPath, file)
         items.push({
-          title: toTitleCase(file),
+          title: metaTitle || toTitleCase(file),
           subject,
           classId: classDir.id,
           pdf: `/study-material/${classDir.id}/${subjectDir}/${file}`
