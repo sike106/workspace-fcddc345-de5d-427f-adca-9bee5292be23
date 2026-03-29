@@ -853,26 +853,11 @@ const PYQ_EXAM_SUBJECTS: Record<string, string[]> = {
   'IAT (IISER Aptitude Test)': ['Physics', 'Chemistry', 'Mathematics', 'Biology']
 }
 
-const STUDY_MATERIAL = {
-  class11: [
-    { title: 'NCERT Physics Class 11', pdf: '/study-material/class-11-ncert-physics.pdf' },
-    { title: 'NCERT Chemistry Class 11', pdf: '/study-material/class-11-ncert-chemistry.pdf' },
-    { title: 'NCERT Mathematics Class 11', pdf: '/study-material/class-11-ncert-mathematics.pdf' },
-    { title: 'Concepts of Physics Vol 1 (H.C. Verma)', pdf: '/study-material/class-11-hc-verma-vol-1.pdf' }
-  ],
-  class12: [
-    { title: 'NCERT Physics Class 12', pdf: '/study-material/class-12-ncert-physics.pdf' },
-    { title: 'NCERT Chemistry Class 12', pdf: '/study-material/class-12-ncert-chemistry.pdf' },
-    { title: 'NCERT Mathematics Class 12', pdf: '/study-material/class-12-ncert-mathematics.pdf' },
-    { title: 'Concepts of Physics Vol 2 (H.C. Verma)', pdf: '/study-material/class-12-hc-verma-vol-2.pdf' }
-  ],
-  jee: [
-    { title: 'IIT JEE Physics (D.C. Pandey)', pdf: '/study-material/jee-dc-pandey-physics.pdf' },
-    { title: 'Physical Chemistry (P. Bahadur)', pdf: '/study-material/jee-p-bahadur-physical-chemistry.pdf' },
-    { title: 'Mathematics (Cengage Series)', pdf: '/study-material/jee-cengage-mathematics.pdf' },
-    { title: 'Organic Chemistry (M.S. Chauhan)', pdf: '/study-material/jee-ms-chauhan-organic-chemistry.pdf' },
-    { title: 'Inorganic Chemistry (J.D. Lee)', pdf: '/study-material/jee-jd-lee-inorganic-chemistry.pdf' }
-  ]
+type StudyMaterialItem = {
+  title: string
+  subject: 'Physics' | 'Chemistry' | 'Mathematics'
+  pdf: string
+  classId: 'class-11' | 'class-12' | 'jee'
 }
 
 export default function JEEStudyBuddy() {
@@ -2141,6 +2126,129 @@ function Dashboard({ user }: { user: User | null }) {
 
 function StudyMaterial({ user }: { user: User | null }) {
   const isGuest = Boolean(user?.isGuest)
+  const isAdmin = user?.role === 'admin'
+  const [selectedClass, setSelectedClass] = useState<'all' | 'class-11' | 'class-12' | 'jee'>('all')
+  const [selectedSubject, setSelectedSubject] = useState<'all' | 'Physics' | 'Chemistry' | 'Mathematics'>('all')
+  const [materials, setMaterials] = useState<StudyMaterialItem[]>([])
+  const [materialsLoading, setMaterialsLoading] = useState(true)
+  const [materialsError, setMaterialsError] = useState('')
+  const [uploadClass, setUploadClass] = useState<'class-11' | 'class-12' | 'jee'>('class-11')
+  const [uploadSubject, setUploadSubject] = useState<'Physics' | 'Chemistry' | 'Mathematics'>('Physics')
+  const [uploadFile, setUploadFile] = useState<File | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const [uploadMessage, setUploadMessage] = useState('')
+  const [uploadError, setUploadError] = useState('')
+  const uploadInputRef = useRef<HTMLInputElement | null>(null)
+
+  const classMeta = {
+    'class-11': {
+      title: 'Class 11 Foundation',
+      subtitle: 'Core NCERT + concept builders for a rock-solid base.',
+      label: 'Class 11'
+    },
+    'class-12': {
+      title: 'Class 12 Momentum',
+      subtitle: 'Board-aligned theory plus stronger problem practice.',
+      label: 'Class 12'
+    },
+    jee: {
+      title: 'JEE Rank Boosters',
+      subtitle: 'Advanced-level problem banks for speed and accuracy.',
+      label: 'JEE'
+    }
+  } as const
+
+  const refreshMaterials = useCallback(async () => {
+    setMaterialsLoading(true)
+    setMaterialsError('')
+    try {
+      const response = await fetch('/api/study-material')
+      if (!response.ok) {
+        throw new Error('Unable to load study material.')
+      }
+      const data = await response.json()
+      setMaterials(Array.isArray(data?.items) ? data.items : [])
+    } catch (err: any) {
+      setMaterialsError(err?.message || 'Unable to load study material.')
+      setMaterials([])
+    } finally {
+      setMaterialsLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void refreshMaterials()
+  }, [refreshMaterials])
+
+  const sections = (Object.keys(classMeta) as Array<keyof typeof classMeta>).map(id => ({
+    id,
+    title: classMeta[id].title,
+    subtitle: classMeta[id].subtitle,
+    items: materials.filter(item => item.classId === id)
+  }))
+
+  const classFilters = [
+    { id: 'all', label: 'All Classes' },
+    { id: 'class-11', label: 'Class 11' },
+    { id: 'class-12', label: 'Class 12' },
+    { id: 'jee', label: 'JEE' }
+  ] as const
+  const subjectFilters = [
+    { id: 'all', label: 'All Subjects' },
+    { id: 'Physics', label: 'Physics' },
+    { id: 'Chemistry', label: 'Chemistry' },
+    { id: 'Mathematics', label: 'Mathematics' }
+  ] as const
+  const filteredSections = sections
+    .filter(section => selectedClass === 'all' || section.id === selectedClass)
+    .map(section => ({
+      ...section,
+      items:
+        selectedSubject === 'all'
+          ? section.items
+          : section.items.filter(item => item.subject === selectedSubject)
+    }))
+    .filter(section => section.items.length > 0)
+
+  const handleUpload = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setUploadError('')
+    setUploadMessage('')
+
+    if (!uploadFile) {
+      setUploadError('Please select a PDF to upload.')
+      return
+    }
+
+    setUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', uploadFile)
+      formData.append('classId', uploadClass)
+      formData.append('subject', uploadSubject)
+
+      const response = await fetch('/api/study-material/upload', {
+        method: 'POST',
+        body: formData
+      })
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}))
+        throw new Error(payload?.error || 'Upload failed. Please try again.')
+      }
+
+      setUploadMessage('PDF uploaded successfully.')
+      setUploadFile(null)
+      if (uploadInputRef.current) {
+        uploadInputRef.current.value = ''
+      }
+      await refreshMaterials()
+    } catch (err: any) {
+      setUploadError(err?.message || 'Upload failed. Please try again.')
+    } finally {
+      setUploading(false)
+    }
+  }
 
   return (
     <motion.div
@@ -2148,68 +2256,184 @@ function StudyMaterial({ user }: { user: User | null }) {
       animate={{ opacity: 1, y: 0 }}
       className="space-y-6"
     >
-      <div className="bg-linear-to-r from-blue-500/20 to-purple-500/20 rounded-2xl p-6 border border-blue-500/30">
-        <h2 className="text-2xl font-bold mb-2">Study Material Library</h2>
-        <p className="text-slate-400">Class 11, Class 12, aur JEE ke curated books ka PDF collection.</p>
-      </div>
-
-      <div className="relative bg-slate-800/50 rounded-2xl p-6 border border-slate-700">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold">Books by Level</h3>
-          <span className="text-xs text-slate-400">PDF downloads</span>
+      <section className="relative overflow-hidden rounded-3xl border border-blue-500/30 bg-linear-to-br from-slate-900 via-blue-900/60 to-purple-900/50 p-8 md:p-10">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.18),_transparent_55%)]" />
+        <div className="relative z-10 space-y-4">
+          <div className="inline-flex items-center gap-2 rounded-full border border-blue-400/30 bg-blue-500/10 px-3 py-1 text-xs text-blue-200">
+            <Library className="h-4 w-4" />
+            <span>Study Material Hub</span>
+          </div>
+          <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-white">
+            Targeted PDFs for Class 11, Class 12, and JEE
+          </h2>
+          <p className="max-w-2xl text-slate-300">
+            Handpicked books with a clean download flow. Start with foundations, build consistency, then push
+            into advanced JEE practice.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {['Class 11', 'Class 12', 'JEE'].map(label => (
+              <span
+                key={label}
+                className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-200"
+              >
+                {label}
+              </span>
+            ))}
+          </div>
         </div>
-        <div className={`grid grid-cols-1 md:grid-cols-3 gap-4 ${isGuest ? 'blur-sm select-none pointer-events-none' : ''}`}>
-          <div className="bg-slate-900/40 border border-slate-700 rounded-xl p-4">
-            <h4 className="text-sm font-semibold text-slate-200 mb-3">Class 11</h4>
-            <ul className="space-y-2 text-sm text-slate-300">
-              {STUDY_MATERIAL.class11.map(item => (
-                <li key={item.title} className="flex items-center justify-between gap-3">
-                  <span className="truncate">{item.title}</span>
-                  <a
-                    href={item.pdf}
-                    download
-                    className="text-xs px-2 py-1 rounded-full bg-blue-500/20 text-blue-200 hover:bg-blue-500/30 transition-colors shrink-0"
-                  >
-                    PDF
-                  </a>
-                </li>
+      </section>
+
+      <div className="relative space-y-6">
+        {isAdmin && (
+          <form
+            onSubmit={handleUpload}
+            className="bg-slate-800/40 border border-slate-700 rounded-2xl p-4 md:p-5 space-y-3"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-semibold text-white">Admin Upload</h3>
+                <p className="text-xs text-slate-400">Only admins can add new PDFs.</p>
+              </div>
+              <span className="text-[11px] text-slate-500">PDF only</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {(Object.keys(classMeta) as Array<keyof typeof classMeta>).map(id => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setUploadClass(id)}
+                  className={`px-3 py-1.5 rounded-full text-xs border transition-colors ${
+                    uploadClass === id
+                      ? 'bg-blue-500/20 text-blue-200 border-blue-500/40'
+                      : 'bg-slate-900/40 text-slate-300 border-slate-700 hover:border-slate-500'
+                  }`}
+                >
+                  {classMeta[id].label}
+                </button>
               ))}
-            </ul>
-          </div>
-          <div className="bg-slate-900/40 border border-slate-700 rounded-xl p-4">
-            <h4 className="text-sm font-semibold text-slate-200 mb-3">Class 12</h4>
-            <ul className="space-y-2 text-sm text-slate-300">
-              {STUDY_MATERIAL.class12.map(item => (
-                <li key={item.title} className="flex items-center justify-between gap-3">
-                  <span className="truncate">{item.title}</span>
-                  <a
-                    href={item.pdf}
-                    download
-                    className="text-xs px-2 py-1 rounded-full bg-blue-500/20 text-blue-200 hover:bg-blue-500/30 transition-colors shrink-0"
-                  >
-                    PDF
-                  </a>
-                </li>
+              {subjectFilters.filter(filter => filter.id !== 'all').map(filter => (
+                <button
+                  key={filter.id}
+                  type="button"
+                  onClick={() => setUploadSubject(filter.id as 'Physics' | 'Chemistry' | 'Mathematics')}
+                  className={`px-3 py-1.5 rounded-full text-xs border transition-colors ${
+                    uploadSubject === filter.id
+                      ? 'bg-purple-500/20 text-purple-200 border-purple-500/40'
+                      : 'bg-slate-900/40 text-slate-300 border-slate-700 hover:border-slate-500'
+                  }`}
+                >
+                  {filter.label}
+                </button>
               ))}
-            </ul>
-          </div>
-          <div className="bg-slate-900/40 border border-slate-700 rounded-xl p-4">
-            <h4 className="text-sm font-semibold text-slate-200 mb-3">JEE</h4>
-            <ul className="space-y-2 text-sm text-slate-300">
-              {STUDY_MATERIAL.jee.map(item => (
-                <li key={item.title} className="flex items-center justify-between gap-3">
-                  <span className="truncate">{item.title}</span>
-                  <a
-                    href={item.pdf}
-                    download
-                    className="text-xs px-2 py-1 rounded-full bg-blue-500/20 text-blue-200 hover:bg-blue-500/30 transition-colors shrink-0"
-                  >
-                    PDF
-                  </a>
-                </li>
+            </div>
+            <div className="flex flex-col md:flex-row md:items-center gap-3">
+              <input
+                ref={uploadInputRef}
+                type="file"
+                accept="application/pdf"
+                onChange={event => setUploadFile(event.target.files?.[0] ?? null)}
+                className="w-full text-xs text-slate-300 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-700 file:px-3 file:py-2 file:text-xs file:text-white hover:file:bg-slate-600"
+              />
+              <button
+                type="submit"
+                disabled={uploading}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-linear-to-r from-blue-500 to-purple-500 px-4 py-2 text-sm font-medium text-white hover:opacity-90 transition-opacity disabled:opacity-60"
+              >
+                <Upload className="h-4 w-4" />
+                {uploading ? 'Uploading...' : 'Upload PDF'}
+              </button>
+            </div>
+            {(uploadMessage || uploadError) && (
+              <p className={`text-xs ${uploadError ? 'text-red-300' : 'text-emerald-300'}`}>
+                {uploadError || uploadMessage}
+              </p>
+            )}
+          </form>
+        )}
+        <div className={`space-y-4 ${isGuest ? 'blur-sm select-none pointer-events-none' : ''}`}>
+          <div className="bg-slate-800/40 border border-slate-700 rounded-2xl p-4 md:p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            <div className="flex items-center gap-2 text-sm text-slate-300">
+              <span className="font-medium">Filter</span>
+              <span className="text-slate-500">Choose class and subject</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {classFilters.map(filter => (
+                <button
+                  key={filter.id}
+                  type="button"
+                  onClick={() => setSelectedClass(filter.id)}
+                  className={`px-3 py-1.5 rounded-full text-xs border transition-colors ${
+                    selectedClass === filter.id
+                      ? 'bg-blue-500/20 text-blue-200 border-blue-500/40'
+                      : 'bg-slate-900/40 text-slate-300 border-slate-700 hover:border-slate-500'
+                  }`}
+                >
+                  {filter.label}
+                </button>
               ))}
-            </ul>
+              {subjectFilters.map(filter => (
+                <button
+                  key={filter.id}
+                  type="button"
+                  onClick={() => setSelectedSubject(filter.id)}
+                  className={`px-3 py-1.5 rounded-full text-xs border transition-colors ${
+                    selectedSubject === filter.id
+                      ? 'bg-purple-500/20 text-purple-200 border-purple-500/40'
+                      : 'bg-slate-900/40 text-slate-300 border-slate-700 hover:border-slate-500'
+                  }`}
+                >
+                  {filter.label}
+                </button>
+              ))}
+            </div>
           </div>
+        </div>
+        <div className={`space-y-6 ${isGuest ? 'blur-sm select-none pointer-events-none' : ''}`}>
+          {materialsLoading ? (
+            <div className="bg-slate-800/40 border border-slate-700 rounded-2xl p-6 text-center text-slate-400">
+              Loading study material...
+            </div>
+          ) : materialsError ? (
+            <div className="bg-slate-800/40 border border-slate-700 rounded-2xl p-6 text-center text-red-300">
+              {materialsError}
+            </div>
+          ) : filteredSections.length === 0 ? (
+            <div className="bg-slate-800/40 border border-slate-700 rounded-2xl p-6 text-center text-slate-400">
+              No PDFs found for this filter. Try another class or subject.
+            </div>
+          ) : (
+            filteredSections.map(section => (
+            <section
+              key={section.id}
+              className="bg-slate-800/40 rounded-2xl border border-slate-700 p-6"
+            >
+              <div className="mb-5">
+                <h3 className="text-xl font-semibold text-white">{section.title}</h3>
+                <p className="text-sm text-slate-400 mt-1">{section.subtitle}</p>
+                <div className="mt-3 h-1 w-16 rounded-full bg-linear-to-r from-blue-500 to-purple-500" />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {section.items.map(item => (
+                  <div
+                    key={item.title}
+                    className="rounded-2xl border border-slate-700 bg-slate-900/40 p-5 flex flex-col gap-4"
+                  >
+                    <div className="min-h-[48px] text-sm font-semibold text-slate-200">
+                      {item.title}
+                    </div>
+                    <a
+                      href={item.pdf}
+                      download
+                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-linear-to-r from-blue-500 to-purple-500 px-4 py-2 text-sm font-medium text-white hover:opacity-90 transition-opacity"
+                    >
+                      <Download className="h-4 w-4" />
+                      Download PDF
+                    </a>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )))}
         </div>
         {isGuest && (
           <div className="absolute inset-0 rounded-2xl bg-slate-950/70 border border-slate-700 flex items-center justify-center">

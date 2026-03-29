@@ -50,6 +50,10 @@ export default function RootLayout({
           name="995b90fd6f777b9263494e4bb15bd186f5c9de5d"
           content="995b90fd6f777b9263494e4bb15bd186f5c9de5d"
         />
+        <script
+          async
+          src="https://www.profitablecpmratenetwork.com/pxw2hw5ur?key=b94c7ccb02ec5960dbcb4a9111298d12"
+        />
         <meta name="google-adsense-account" content="ca-pub-6942703237637346" />
       </head>
       <body
