@@ -2256,7 +2256,8 @@ function StudyMaterial({ user }: { user: User | null }) {
             }
           }
           if (!ok) {
-            reject(new Error(payload?.error || 'Upload failed. Please try again.'))
+            const fallback = `Upload failed (status ${xhr.status}). Please try again.`
+            reject(new Error(payload?.error || fallback))
             return
           }
           resolve(payload)

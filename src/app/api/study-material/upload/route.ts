@@ -3,6 +3,9 @@ import path from 'path'
 import fs from 'fs/promises'
 import { withRole } from '@/lib/auth'
 
+export const runtime = 'nodejs'
+export const maxDuration = 120
+
 const CLASS_DIRS = new Set(['class-11', 'class-12', 'jee'])
 const SUBJECT_DIRS: Record<string, string> = {
   Physics: 'physics',
