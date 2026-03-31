@@ -118,6 +118,23 @@ export default function RootLayout({
           }}
         />
         <script src="https://www.highperformanceformat.com/502e06c4685c2244fe3e150bfe4182fb/invoke.js" />
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "(function(s){s.dataset.zone='10782567',s.src='https://n6wxm.com/vignette.min.js'})([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')))"
+          }}
+        />
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "(function(s){s.dataset.zone='10782572',s.src='https://nap5k.com/tag.min.js'})([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')))"
+          }}
+        />
+        <script
+          async
+          data-cfasync="false"
+          src="https://5gvci.com/act/files/tag.min.js?z=10782548"
+        />
         <meta name="google-adsense-account" content="ca-pub-6942703237637346" />
       </head>
       <body
