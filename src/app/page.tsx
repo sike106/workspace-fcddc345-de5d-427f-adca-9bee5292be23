@@ -1263,15 +1263,8 @@ function AuthPage({
     } catch (err: any) {
       const code = typeof err?.code === 'string' ? err.code : ''
       if (code === 'auth/popup-blocked' || code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
-        try {
-          await signInWithRedirect(firebaseAuth, googleAuthProvider)
-          return
-        } catch (redirectErr: any) {
-          console.error('Google login redirect failed:', redirectErr)
-          setError(getFirebaseAuthErrorMessage(redirectErr, 'Google login failed'))
-        } finally {
-          setLoading(false)
-        }
+        setError('Popup blocked. Please allow popups to continue Google login.')
+        setLoading(false)
         return
       }
       console.error('Google login start failed:', err)
