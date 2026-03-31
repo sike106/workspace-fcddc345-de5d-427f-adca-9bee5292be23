@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
+import AdScripts from "@/components/AdScripts";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -119,39 +120,6 @@ export default function RootLayout({
             })();`
           }}
         />
-        <script
-          async
-          src="https://www.profitablecpmratenetwork.com/pxw2hw5ur?key=b94c7ccb02ec5960dbcb4a9111298d12"
-        />
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `atOptions = {
-  'key' : '502e06c4685c2244fe3e150bfe4182fb',
-  'format' : 'iframe',
-  'height' : 50,
-  'width' : 320,
-  'params' : {}
-};`
-          }}
-        />
-        <script src="https://www.highperformanceformat.com/502e06c4685c2244fe3e150bfe4182fb/invoke.js" />
-        <script
-          dangerouslySetInnerHTML={{
-            __html:
-              "(function(s){s.dataset.zone='10782567',s.src='https://n6wxm.com/vignette.min.js'})([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')))"
-          }}
-        />
-        <script
-          dangerouslySetInnerHTML={{
-            __html:
-              "(function(s){s.dataset.zone='10782572',s.src='https://nap5k.com/tag.min.js'})([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')))"
-          }}
-        />
-        <script
-          async
-          data-cfasync="false"
-          src="https://5gvci.com/act/files/tag.min.js?z=10782548"
-        />
         <meta name="google-adsense-account" content="ca-pub-6942703237637346" />
       </head>
       <body
@@ -182,6 +150,7 @@ export default function RootLayout({
         <div className="fixed inset-0 -z-10 bg-linear-to-br from-slate-900 via-blue-950 to-slate-900" />
         {children}
         <Toaster />
+        <AdScripts />
       </body>
     </html>
   );
