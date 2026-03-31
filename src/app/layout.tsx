@@ -52,6 +52,12 @@ export default function RootLayout({
         />
         <script
           async
+          src="https://quge5.com/88/tag.min.js"
+          data-zone="225030"
+          data-cfasync="false"
+        />
+        <script
+          async
           src="https://www.profitablecpmratenetwork.com/pxw2hw5ur?key=b94c7ccb02ec5960dbcb4a9111298d12"
         />
         <meta name="google-adsense-account" content="ca-pub-6942703237637346" />
@@ -74,6 +80,24 @@ export default function RootLayout({
                 scale: 1
               }
             };
+          `}
+        </Script>
+        <Script id="popunder-guard" strategy="beforeInteractive">
+          {`
+            (function () {
+              var lastUserEvent = 0;
+              var mark = function () { lastUserEvent = Date.now(); };
+              document.addEventListener('click', mark, true);
+              document.addEventListener('keydown', mark, true);
+              document.addEventListener('touchstart', mark, true);
+              var originalOpen = window.open;
+              window.open = function () {
+                if (Date.now() - lastUserEvent > 1000) {
+                  return null;
+                }
+                return originalOpen.apply(this, arguments);
+              };
+            })();
           `}
         </Script>
         <Script
