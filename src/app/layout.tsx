@@ -103,6 +103,23 @@ export default function RootLayout({
           }}
         />
         <script
+          dangerouslySetInnerHTML={{
+            __html: `(function () {
+              try {
+                if (!window.performance || typeof window.performance.measure !== 'function') return;
+                var originalMeasure = window.performance.measure.bind(window.performance);
+                window.performance.measure = function () {
+                  try {
+                    return originalMeasure.apply(window.performance, arguments);
+                  } catch (e) {
+                    return undefined;
+                  }
+                };
+              } catch (e) {}
+            })();`
+          }}
+        />
+        <script
           async
           src="https://www.profitablecpmratenetwork.com/pxw2hw5ur?key=b94c7ccb02ec5960dbcb4a9111298d12"
         />
