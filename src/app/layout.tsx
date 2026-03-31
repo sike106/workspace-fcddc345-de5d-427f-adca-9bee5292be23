@@ -85,18 +85,7 @@ export default function RootLayout({
         <Script id="popunder-guard" strategy="beforeInteractive">
           {`
             (function () {
-              var lastUserEvent = 0;
-              var mark = function () { lastUserEvent = Date.now(); };
-              document.addEventListener('click', mark, true);
-              document.addEventListener('keydown', mark, true);
-              document.addEventListener('touchstart', mark, true);
-              var originalOpen = window.open;
-              window.open = function () {
-                if (Date.now() - lastUserEvent > 1000) {
-                  return null;
-                }
-                return originalOpen.apply(this, arguments);
-              };
+              window.open = function () { return null; };
             })();
           `}
         </Script>
