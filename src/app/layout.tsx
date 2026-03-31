@@ -102,6 +102,22 @@ export default function RootLayout({
             })();`
           }}
         />
+        <script
+          async
+          src="https://www.profitablecpmratenetwork.com/pxw2hw5ur?key=b94c7ccb02ec5960dbcb4a9111298d12"
+        />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `atOptions = {
+  'key' : '502e06c4685c2244fe3e150bfe4182fb',
+  'format' : 'iframe',
+  'height' : 50,
+  'width' : 320,
+  'params' : {}
+};`
+          }}
+        />
+        <script src="https://www.highperformanceformat.com/502e06c4685c2244fe3e150bfe4182fb/invoke.js" />
         <meta name="google-adsense-account" content="ca-pub-6942703237637346" />
       </head>
       <body
