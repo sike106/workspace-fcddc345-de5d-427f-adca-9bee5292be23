@@ -1308,35 +1308,39 @@ function AuthPage({
           )}
         </motion.div>
 
-        {/* Auth Card */}
-        <motion.div
-          initial={{ y: 20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.1 }}
-          className="bg-slate-800/50 backdrop-blur-xl rounded-2xl p-8 border border-slate-700"
-        >
-          <div className="flex gap-4 mb-6">
-            <button
-              onClick={() => setAuthMode('login')}
-              className={`flex-1 py-2 rounded-lg font-medium transition-all ${
-                authMode === 'login'
-                  ? 'bg-blue-500 text-white'
-                  : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-              }`}
-            >
-              Login
-            </button>
-            <button
-              onClick={() => setAuthMode('signup')}
-              className={`flex-1 py-2 rounded-lg font-medium transition-all ${
-                authMode === 'signup'
-                  ? 'bg-blue-500 text-white'
-                  : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-              }`}
-            >
-              Sign Up
-            </button>
+        <div className="relative">
+          <div className="absolute -top-5 left-1/2 -translate-x-1/2 z-10">
+            <div className="flex items-center gap-2 rounded-full border border-slate-700 bg-slate-900/90 backdrop-blur px-2 py-2 shadow-lg">
+              <button
+                onClick={() => setAuthMode('login')}
+                className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                  authMode === 'login'
+                    ? 'bg-linear-to-r from-blue-500 to-purple-500 text-white'
+                    : 'text-slate-300 hover:text-white'
+                }`}
+              >
+                Login
+              </button>
+              <button
+                onClick={() => setAuthMode('signup')}
+                className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                  authMode === 'signup'
+                    ? 'bg-linear-to-r from-blue-500 to-purple-500 text-white'
+                    : 'text-slate-300 hover:text-white'
+                }`}
+              >
+                Sign Up
+              </button>
+            </div>
           </div>
+
+          {/* Auth Card */}
+          <motion.div
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.1 }}
+            className="bg-slate-800/50 backdrop-blur-xl rounded-2xl p-8 pt-10 border border-slate-700"
+          >
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {authMode === 'signup' && (
@@ -1445,6 +1449,7 @@ function AuthPage({
             </button>
           </div>
         </motion.div>
+      </div>
       </div>
     </motion.div>
   )
