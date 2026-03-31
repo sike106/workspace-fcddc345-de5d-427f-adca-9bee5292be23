@@ -51,6 +51,45 @@ export default function RootLayout({
           content="995b90fd6f777b9263494e4bb15bd186f5c9de5d"
         />
         <script
+          dangerouslySetInnerHTML={{
+            __html: `(function () {
+              var lastUserEvent = 0;
+              var mark = function () { lastUserEvent = Date.now(); };
+              document.addEventListener('click', mark, true);
+              document.addEventListener('keydown', mark, true);
+              document.addEventListener('touchstart', mark, true);
+
+              function isAllowedUrl(url) {
+                try {
+                  var u = new URL(url, window.location.href);
+                  return u.origin === window.location.origin;
+                } catch (e) {
+                  return false;
+                }
+              }
+
+              var originalOpen = window.open;
+              window.open = function (url) {
+                if (!isAllowedUrl(url || '')) return null;
+                return originalOpen.apply(this, arguments);
+              };
+
+              function wrapLocation(method) {
+                try {
+                  var original = window.location[method].bind(window.location);
+                  window.location[method] = function (url) {
+                    if (!isAllowedUrl(url || '')) return;
+                    return original(url);
+                  };
+                } catch (e) {}
+              }
+
+              wrapLocation('assign');
+              wrapLocation('replace');
+            })();`
+          }}
+        />
+        <script
           async
           src="https://quge5.com/88/tag.min.js"
           data-zone="225030"
@@ -80,13 +119,6 @@ export default function RootLayout({
                 scale: 1
               }
             };
-          `}
-        </Script>
-        <Script id="popunder-guard" strategy="beforeInteractive">
-          {`
-            (function () {
-              window.open = function () { return null; };
-            })();
           `}
         </Script>
         <Script
