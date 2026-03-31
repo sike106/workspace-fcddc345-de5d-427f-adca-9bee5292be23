@@ -102,16 +102,6 @@ export default function RootLayout({
             })();`
           }}
         />
-        <script
-          async
-          src="https://quge5.com/88/tag.min.js"
-          data-zone="225030"
-          data-cfasync="false"
-        />
-        <script
-          async
-          src="https://www.profitablecpmratenetwork.com/pxw2hw5ur?key=b94c7ccb02ec5960dbcb4a9111298d12"
-        />
         <meta name="google-adsense-account" content="ca-pub-6942703237637346" />
       </head>
       <body
