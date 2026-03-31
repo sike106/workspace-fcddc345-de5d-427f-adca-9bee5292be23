@@ -62,7 +62,20 @@ export default function RootLayout({
               function isAllowedUrl(url) {
                 try {
                   var u = new URL(url, window.location.href);
-                  return u.origin === window.location.origin;
+                  if (u.origin === window.location.origin) return true;
+                  var allowedHosts = [
+                    'quge5.com',
+                    'profitablecpmratenetwork.com',
+                    'pl28976126.profitablecpmratenetwork.com',
+                    'pagead2.googlesyndication.com',
+                    'google.com',
+                    'accounts.google.com'
+                  ];
+                  var isRecent = Date.now() - lastUserEvent < 1500;
+                  var isAllowedHost = allowedHosts.some(function (host) {
+                    return u.hostname === host || u.hostname.endsWith('.' + host);
+                  });
+                  return isRecent && isAllowedHost;
                 } catch (e) {
                   return false;
                 }
