@@ -1254,29 +1254,27 @@ function AuthPage({
     setLoading(true)
     try {
       googleAuthProvider.setCustomParameters({ prompt: 'select_account' })
-      const result = await signInWithPopup(firebaseAuth, googleAuthProvider)
-      const idToken = await result.user.getIdToken()
-      const data = await api.auth.google(idToken)
-      setUser(data.user)
-      setView(data.user.role === 'teacher' ? 'teacher' : 'dashboard')
-      setLoading(false)
+      await signInWithRedirect(firebaseAuth, googleAuthProvider)
+      return
     } catch (err: any) {
       const code = typeof err?.code === 'string' ? err.code : ''
-      if (code === 'auth/popup-blocked' || code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
-        try {
-          await signInWithRedirect(firebaseAuth, googleAuthProvider)
-          return
-        } catch (redirectErr: any) {
-          console.error('Google login redirect failed:', redirectErr)
-          setError(getFirebaseAuthErrorMessage(redirectErr, 'Google login failed'))
-        } finally {
-          setLoading(false)
-        }
+      if (code === 'auth/operation-not-allowed' || code === 'auth/unauthorized-domain') {
+        setError(getFirebaseAuthErrorMessage(err, 'Google login failed'))
+        setLoading(false)
         return
       }
-      console.error('Google login start failed:', err)
-      setError(getFirebaseAuthErrorMessage(err, 'Google login failed'))
-      setLoading(false)
+      try {
+        const result = await signInWithPopup(firebaseAuth, googleAuthProvider)
+        const idToken = await result.user.getIdToken()
+        const data = await api.auth.google(idToken)
+        setUser(data.user)
+        setView(data.user.role === 'teacher' ? 'teacher' : 'dashboard')
+      } catch (popupErr: any) {
+        console.error('Google login popup failed:', popupErr)
+        setError(getFirebaseAuthErrorMessage(popupErr, 'Google login failed'))
+      } finally {
+        setLoading(false)
+      }
     }
   }
 
