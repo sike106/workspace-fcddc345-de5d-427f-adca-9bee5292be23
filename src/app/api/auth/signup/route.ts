@@ -6,9 +6,10 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const { email, password, name, role = 'student' } = body
+    const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : ''
 
     // Validation
-    if (!email || !password || !name) {
+    if (!normalizedEmail || !password || !name) {
       return NextResponse.json(
         { error: 'Email, password, and name are required', code: 'VALIDATION_ERROR' },
         { status: 400 }
@@ -23,8 +24,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if user exists
-    const existingUser = await db.user.findUnique({
-      where: { email }
+    const existingUser = await db.user.findFirst({
+      where: {
+        email: {
+          equals: normalizedEmail,
+          mode: 'insensitive',
+        },
+      },
     })
 
     if (existingUser) {
@@ -37,12 +43,12 @@ export async function POST(request: NextRequest) {
     // Hash password
     const hashedPassword = await hashPassword(password)
     // Create user
-    const allowlistedAdmin = isAdminAllowlisted(email)
+    const allowlistedAdmin = isAdminAllowlisted(normalizedEmail)
     const finalRole = allowlistedAdmin ? 'admin' : (role === 'teacher' ? 'teacher' : 'student')
 
     const user = await db.user.create({
       data: {
-        email,
+        email: normalizedEmail,
         password: hashedPassword,
         name,
         role: finalRole,

@@ -6,9 +6,10 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const { email, password, guestId } = body
+    const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : ''
 
     // Validation
-    if (!email || !password) {
+    if (!normalizedEmail || !password) {
       return NextResponse.json(
         { error: 'Email and password are required', code: 'VALIDATION_ERROR' },
         { status: 400 }
@@ -16,13 +17,28 @@ export async function POST(request: NextRequest) {
     }
 
     // Find user
-    const user = await db.user.findUnique({
-      where: { email }
+    const user = await db.user.findFirst({
+      where: {
+        email: {
+          equals: normalizedEmail,
+          mode: 'insensitive',
+        },
+      },
     })
 
-    if (!user || !user.password) {
+    if (!user) {
       return NextResponse.json(
         { error: 'Invalid credentials', code: 'INVALID_CREDENTIALS' },
+        { status: 401 }
+      )
+    }
+
+    if (!user.password) {
+      return NextResponse.json(
+        {
+          error: 'This account uses Google login. Please sign in with Google.',
+          code: 'PASSWORD_NOT_SET',
+        },
         { status: 401 }
       )
     }
