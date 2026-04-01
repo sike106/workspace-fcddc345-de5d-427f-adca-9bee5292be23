@@ -21,12 +21,9 @@ export const metadata: Metadata = {
   keywords: ["JEE", "JEE Main", "JEE Advanced", "AI Buddy", "Practice Tests", "Mock Tests", "IIT", "NIT", "Engineering Entrance", "Physics", "Chemistry", "Mathematics"],
   authors: [{ name: "JEE Study Buddy Team" }],
   icons: {
-    icon: [
-      { url: "/logo.png", type: "image/png", sizes: "512x512" },
-      { url: "/dashboard-logo.svg", type: "image/svg+xml" },
-    ],
-    apple: [{ url: "/logo.png", type: "image/png", sizes: "180x180" }],
-    shortcut: [{ url: "/logo.png", type: "image/png", sizes: "96x96" }],
+    icon: [{ url: "/dashboard-logo.svg", type: "image/svg+xml", sizes: "any" }],
+    apple: [{ url: "/dashboard-logo.svg", type: "image/svg+xml", sizes: "any" }],
+    shortcut: [{ url: "/dashboard-logo.svg", type: "image/svg+xml", sizes: "any" }],
   },
   manifest: "/manifest.webmanifest",
   openGraph: {
