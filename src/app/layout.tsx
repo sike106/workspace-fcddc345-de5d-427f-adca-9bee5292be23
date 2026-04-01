@@ -62,6 +62,8 @@ export default function RootLayout({
 
               function isAllowedUrl(url) {
                 try {
+                  var isRecent = Date.now() - lastUserEvent < 1500;
+                  if (!url || url === 'about:blank') return isRecent;
                   var u = new URL(url, window.location.href);
                   if (u.origin === window.location.origin) return true;
                   var allowedHosts = [
@@ -70,9 +72,12 @@ export default function RootLayout({
                     'pl28976126.profitablecpmratenetwork.com',
                     'pagead2.googlesyndication.com',
                     'google.com',
-                    'accounts.google.com'
+                    'accounts.google.com',
+                    'gstatic.com',
+                    'googleusercontent.com',
+                    'firebaseapp.com',
+                    'firebaseauth.com'
                   ];
-                  var isRecent = Date.now() - lastUserEvent < 1500;
                   var isAllowedHost = allowedHosts.some(function (host) {
                     return u.hostname === host || u.hostname.endsWith('.' + host);
                   });
