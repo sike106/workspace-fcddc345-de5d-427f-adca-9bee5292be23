@@ -22,12 +22,16 @@ export const metadata: Metadata = {
   authors: [{ name: "JEE Study Buddy Team" }],
   icons: {
     icon: [
-      { url: "/dashboard-logo-512.png", type: "image/png", sizes: "512x512" },
+      { url: "/dashboard-logo-32.png", type: "image/png", sizes: "32x32" },
+      { url: "/dashboard-logo-64.png", type: "image/png", sizes: "64x64" },
+      { url: "/dashboard-logo-128.png", type: "image/png", sizes: "128x128" },
       { url: "/dashboard-logo-192.png", type: "image/png", sizes: "192x192" },
+      { url: "/dashboard-logo-256.png", type: "image/png", sizes: "256x256" },
+      { url: "/dashboard-logo-512.png", type: "image/png", sizes: "512x512" },
       { url: "/dashboard-logo.svg", type: "image/svg+xml", sizes: "any" },
     ],
     apple: [{ url: "/dashboard-logo-192.png", type: "image/png", sizes: "192x192" }],
-    shortcut: [{ url: "/dashboard-logo-192.png", type: "image/png", sizes: "192x192" }],
+    shortcut: [{ url: "/dashboard-logo-256.png", type: "image/png", sizes: "256x256" }],
   },
   manifest: "/manifest.webmanifest",
   openGraph: {
