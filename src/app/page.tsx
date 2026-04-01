@@ -1254,27 +1254,25 @@ function AuthPage({
     setLoading(true)
     try {
       googleAuthProvider.setCustomParameters({ prompt: 'select_account' })
-      await signInWithRedirect(firebaseAuth, googleAuthProvider)
-      return
+      const result = await signInWithPopup(firebaseAuth, googleAuthProvider)
+      const idToken = await result.user.getIdToken()
+      const data = await api.auth.google(idToken)
+      setUser(data.user)
+      setView(data.user.role === 'teacher' ? 'teacher' : 'dashboard')
     } catch (err: any) {
       const code = typeof err?.code === 'string' ? err.code : ''
-      if (code === 'auth/operation-not-allowed' || code === 'auth/unauthorized-domain') {
+      if (
+        code === 'auth/popup-blocked' ||
+        code === 'auth/popup-closed-by-user' ||
+        code === 'auth/cancelled-popup-request'
+      ) {
+        setError('Popup blocked. Please allow popups to continue Google login.')
+      } else {
+        console.error('Google login popup failed:', err)
         setError(getFirebaseAuthErrorMessage(err, 'Google login failed'))
-        setLoading(false)
-        return
       }
-      try {
-        const result = await signInWithPopup(firebaseAuth, googleAuthProvider)
-        const idToken = await result.user.getIdToken()
-        const data = await api.auth.google(idToken)
-        setUser(data.user)
-        setView(data.user.role === 'teacher' ? 'teacher' : 'dashboard')
-      } catch (popupErr: any) {
-        console.error('Google login popup failed:', popupErr)
-        setError(getFirebaseAuthErrorMessage(popupErr, 'Google login failed'))
-      } finally {
-        setLoading(false)
-      }
+    } finally {
+      setLoading(false)
     }
   }
 
