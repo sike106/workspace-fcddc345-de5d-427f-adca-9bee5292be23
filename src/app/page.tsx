@@ -856,7 +856,7 @@ const PYQ_EXAM_SUBJECTS: Record<string, string[]> = {
 type StudyMaterialItem = {
   title: string
   subject: 'Physics' | 'Chemistry' | 'Mathematics'
-  key: string
+  fileId: string
   classId: 'class-11' | 'class-12' | 'jee'
   size?: number
 }
@@ -2239,35 +2239,16 @@ function StudyMaterial({ user }: { user: User | null }) {
     setUploading(true)
     setUploadProgress({ loaded: 0, total: uploadFile.size || 0, percent: 0 })
     try {
-      const initResponse = await fetch('/api/study-material/upload', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          classId: uploadClass,
-          subject: uploadSubject,
-          title: uploadTitle.trim(),
-          fileName: uploadFile.name,
-          contentType: uploadFile.type || 'application/pdf',
-        }),
-      })
+      const formData = new FormData()
+      formData.append('file', uploadFile)
+      formData.append('classId', uploadClass)
+      formData.append('subject', uploadSubject)
+      formData.append('title', uploadTitle.trim())
 
-      let initPayload: any = {}
-      try {
-        initPayload = await initResponse.json()
-      } catch {
-        initPayload = {}
-      }
-
-      if (!initResponse.ok || !initPayload?.uploadUrl) {
-        const fallback = initPayload?.error || 'Unable to start upload.'
-        throw new Error(fallback)
-      }
-
-      await new Promise<void>((resolve, reject) => {
+      const responsePayload = await new Promise<any>((resolve, reject) => {
         const xhr = new XMLHttpRequest()
-        xhr.open('PUT', initPayload.uploadUrl)
+        xhr.open('POST', '/api/study-material/upload')
         xhr.responseType = 'text'
-        xhr.setRequestHeader('Content-Type', uploadFile.type || 'application/pdf')
         xhr.upload.onprogress = (event) => {
           if (!event.lengthComputable) return
           const percent = Math.round((event.loaded / event.total) * 100)
@@ -2275,17 +2256,29 @@ function StudyMaterial({ user }: { user: User | null }) {
         }
         xhr.onload = () => {
           const ok = xhr.status >= 200 && xhr.status < 300
+          let payload: any = {}
+          if (xhr.responseText) {
+            try {
+              payload = JSON.parse(xhr.responseText)
+            } catch {
+              payload = {}
+            }
+          }
           if (!ok) {
             const fallback = `Upload failed (status ${xhr.status}). Please try again.`
-            reject(new Error(fallback))
+            reject(new Error(payload?.error || fallback))
             return
           }
-          resolve()
+          resolve(payload)
         }
         xhr.onerror = () => reject(new Error('Upload failed. Please try again.'))
         xhr.onabort = () => reject(new Error('Upload cancelled.'))
-        xhr.send(uploadFile)
+        xhr.send(formData)
       })
+
+      if (!responsePayload?.fileId) {
+        throw new Error('Upload failed. Please try again.')
+      }
 
       setUploadMessage('PDF uploaded successfully.')
       setUploadFile(null)
@@ -2497,11 +2490,11 @@ function StudyMaterial({ user }: { user: User | null }) {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {section.items.map(item => {
-                  const downloadHref = `/api/study-material/download?key=${encodeURIComponent(item.key)}`
+                  const downloadHref = `/api/study-material/download?fileId=${encodeURIComponent(item.fileId)}`
                   const viewHref = `${downloadHref}&mode=view`
                   return (
                   <div
-                    key={item.key}
+                    key={item.fileId}
                     className="rounded-2xl border border-slate-700 bg-slate-900/40 p-5 flex flex-col gap-4"
                   >
                     <div className="min-h-[48px] text-sm font-semibold text-slate-200">

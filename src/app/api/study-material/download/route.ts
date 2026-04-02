@@ -1,10 +1,9 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { GetObjectCommand } from '@aws-sdk/client-s3'
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
+import { Readable } from 'stream'
 import { withAuth } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { getR2Bucket, getR2Client } from '@/lib/r2'
-import { MATERIAL_PREFIX, parseMaterialKey } from '@/lib/study-material'
+import { getDriveClient } from '@/lib/gdrive'
+import { toTitleCase } from '@/lib/study-material'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -17,12 +16,7 @@ function sanitizeFilename(value: string) {
 export async function GET(request: NextRequest) {
   return withAuth(request, async (user) => {
     const url = new URL(request.url)
-    const rawKey = url.searchParams.get('key') || ''
-    const key = rawKey.replace(/^\/+/, '')
-
-    if (!key || !key.startsWith(`${MATERIAL_PREFIX}/`) || key.includes('..')) {
-      return NextResponse.json({ error: 'Invalid file reference.' }, { status: 400 })
-    }
+    const fileId = url.searchParams.get('fileId') || ''
 
     const userState = await db.user.findUnique({
       where: { id: user.userId },
@@ -33,26 +27,38 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Login required to access study material.' }, { status: 403 })
     }
 
-    const parsed = parseMaterialKey(key)
-    if (!parsed) {
+    if (!fileId) {
       return NextResponse.json({ error: 'File not found.' }, { status: 404 })
     }
 
     const mode = url.searchParams.get('mode') || 'download'
     const disposition = mode === 'view' ? 'inline' : 'attachment'
-    const safeTitle = sanitizeFilename(parsed.title)
-    const responseContentDisposition = `${disposition}; filename="${safeTitle}.pdf"`
-
-    const client = getR2Client()
-    const bucket = getR2Bucket()
-    const command = new GetObjectCommand({
-      Bucket: bucket,
-      Key: parsed.key,
-      ResponseContentDisposition: responseContentDisposition,
-      ResponseContentType: 'application/pdf',
+    const drive = getDriveClient()
+    const meta = await drive.files.get({
+      fileId,
+      fields: 'name, appProperties, mimeType',
+      supportsAllDrives: true,
     })
 
-    const signedUrl = await getSignedUrl(client, command, { expiresIn: 60 * 5 })
-    return NextResponse.redirect(signedUrl)
+    const rawTitle =
+      (meta.data.appProperties?.title as string | undefined) || meta.data.name || 'study-material'
+    const safeTitle = sanitizeFilename(toTitleCase(rawTitle.replace(/\.pdf$/i, '')))
+    const responseContentDisposition = `${disposition}; filename="${safeTitle}.pdf"`
+    const contentType = meta.data.mimeType || 'application/pdf'
+
+    const fileStreamResponse = await drive.files.get(
+      { fileId, alt: 'media', supportsAllDrives: true },
+      { responseType: 'stream' }
+    )
+
+    const nodeStream = fileStreamResponse.data as unknown as NodeJS.ReadableStream
+    const body = Readable.toWeb(nodeStream)
+
+    return new NextResponse(body as any, {
+      headers: {
+        'Content-Type': contentType,
+        'Content-Disposition': responseContentDisposition,
+      },
+    })
   })
 }

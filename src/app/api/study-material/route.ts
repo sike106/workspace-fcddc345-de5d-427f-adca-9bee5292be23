@@ -1,9 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { ListObjectsV2Command } from '@aws-sdk/client-s3'
 import { withAuth } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { getR2Bucket, getR2Client } from '@/lib/r2'
-import { MATERIAL_PREFIX, parseMaterialKey } from '@/lib/study-material'
+import { getDriveClient, getDriveFolderId } from '@/lib/gdrive'
+import { CLASS_DIRS, SUBJECT_DIRS, toTitleCase } from '@/lib/study-material'
 
 export const revalidate = 0
 export const runtime = 'nodejs'
@@ -11,7 +10,7 @@ export const runtime = 'nodejs'
 type MaterialItem = {
   title: string
   subject: 'Physics' | 'Chemistry' | 'Mathematics'
-  key: string
+  fileId: string
   classId: 'class-11' | 'class-12' | 'jee'
   size: number
 }
@@ -30,35 +29,45 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const client = getR2Client()
-    const bucket = getR2Bucket()
+    const drive = getDriveClient()
+    const folderId = getDriveFolderId()
     const items: MaterialItem[] = []
-    let continuationToken: string | undefined
+    let pageToken: string | undefined
+
+    const validClassIds = new Set(CLASS_DIRS.map(entry => entry.id))
+    const validSubjects = new Set(Object.keys(SUBJECT_DIRS))
 
     do {
-      const result = await client.send(
-        new ListObjectsV2Command({
-          Bucket: bucket,
-          Prefix: `${MATERIAL_PREFIX}/`,
-          ContinuationToken: continuationToken,
-        })
-      )
+      const result = await drive.files.list({
+        q: `'${folderId}' in parents and trashed = false and mimeType='application/pdf'`,
+        fields: 'nextPageToken, files(id, name, size, appProperties)',
+        pageToken,
+        pageSize: 200,
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true,
+      })
 
-      for (const entry of result.Contents ?? []) {
-        if (!entry.Key) continue
-        const parsed = parseMaterialKey(entry.Key)
-        if (!parsed) continue
+      for (const file of result.data.files ?? []) {
+        if (!file.id) continue
+        const appProps = file.appProperties || {}
+        const classId = String(appProps.classId || '')
+        const subject = String(appProps.subject || '')
+        if (!validClassIds.has(classId) || !validSubjects.has(subject)) {
+          continue
+        }
+
+        const title = String(appProps.title || '') || toTitleCase(file.name || 'Study Material')
         items.push({
-          title: parsed.title,
-          subject: parsed.subject,
-          classId: parsed.classId,
-          key: parsed.key,
-          size: entry.Size ?? 0,
+          title,
+          subject: subject as MaterialItem['subject'],
+          classId: classId as MaterialItem['classId'],
+          fileId: file.id,
+          size: typeof file.size === 'string' ? Number(file.size) : Number(file.size || 0),
         })
       }
 
-      continuationToken = result.IsTruncated ? result.NextContinuationToken : undefined
-    } while (continuationToken)
+      pageToken = result.data.nextPageToken || undefined
+    } while (pageToken)
 
     return NextResponse.json({ items })
   })
