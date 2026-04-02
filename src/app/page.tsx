@@ -856,8 +856,9 @@ const PYQ_EXAM_SUBJECTS: Record<string, string[]> = {
 type StudyMaterialItem = {
   title: string
   subject: 'Physics' | 'Chemistry' | 'Mathematics'
-  pdf: string
+  key: string
   classId: 'class-11' | 'class-12' | 'jee'
+  size?: number
 }
 
 export default function JEEStudyBuddy() {
@@ -2182,8 +2183,14 @@ function StudyMaterial({ user }: { user: User | null }) {
   }, [])
 
   useEffect(() => {
+    if (!user || isGuest) {
+      setMaterials([])
+      setMaterialsError('')
+      setMaterialsLoading(false)
+      return
+    }
     void refreshMaterials()
-  }, [refreshMaterials])
+  }, [refreshMaterials, isGuest, user])
 
   const sections = (Object.keys(classMeta) as Array<keyof typeof classMeta>).map(id => ({
     id,
@@ -2232,15 +2239,35 @@ function StudyMaterial({ user }: { user: User | null }) {
     setUploading(true)
     setUploadProgress({ loaded: 0, total: uploadFile.size || 0, percent: 0 })
     try {
-      const formData = new FormData()
-      formData.append('file', uploadFile)
-      formData.append('classId', uploadClass)
-      formData.append('subject', uploadSubject)
-      formData.append('title', uploadTitle.trim())
-      const responsePayload = await new Promise<any>((resolve, reject) => {
+      const initResponse = await fetch('/api/study-material/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          classId: uploadClass,
+          subject: uploadSubject,
+          title: uploadTitle.trim(),
+          fileName: uploadFile.name,
+          contentType: uploadFile.type || 'application/pdf',
+        }),
+      })
+
+      let initPayload: any = {}
+      try {
+        initPayload = await initResponse.json()
+      } catch {
+        initPayload = {}
+      }
+
+      if (!initResponse.ok || !initPayload?.uploadUrl) {
+        const fallback = initPayload?.error || 'Unable to start upload.'
+        throw new Error(fallback)
+      }
+
+      await new Promise<void>((resolve, reject) => {
         const xhr = new XMLHttpRequest()
-        xhr.open('POST', '/api/study-material/upload')
+        xhr.open('PUT', initPayload.uploadUrl)
         xhr.responseType = 'text'
+        xhr.setRequestHeader('Content-Type', uploadFile.type || 'application/pdf')
         xhr.upload.onprogress = (event) => {
           if (!event.lengthComputable) return
           const percent = Math.round((event.loaded / event.total) * 100)
@@ -2248,24 +2275,16 @@ function StudyMaterial({ user }: { user: User | null }) {
         }
         xhr.onload = () => {
           const ok = xhr.status >= 200 && xhr.status < 300
-          let payload: any = {}
-          if (xhr.responseText) {
-            try {
-              payload = JSON.parse(xhr.responseText)
-            } catch {
-              payload = {}
-            }
-          }
           if (!ok) {
             const fallback = `Upload failed (status ${xhr.status}). Please try again.`
-            reject(new Error(payload?.error || fallback))
+            reject(new Error(fallback))
             return
           }
-          resolve(payload)
+          resolve()
         }
         xhr.onerror = () => reject(new Error('Upload failed. Please try again.'))
         xhr.onabort = () => reject(new Error('Upload cancelled.'))
-        xhr.send(formData)
+        xhr.send(uploadFile)
       })
 
       setUploadMessage('PDF uploaded successfully.')
@@ -2477,24 +2496,40 @@ function StudyMaterial({ user }: { user: User | null }) {
                 <div className="mt-3 h-1 w-16 rounded-full bg-linear-to-r from-blue-500 to-purple-500" />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {section.items.map(item => (
+                {section.items.map(item => {
+                  const downloadHref = `/api/study-material/download?key=${encodeURIComponent(item.key)}`
+                  const viewHref = `${downloadHref}&mode=view`
+                  return (
                   <div
-                    key={item.title}
+                    key={item.key}
                     className="rounded-2xl border border-slate-700 bg-slate-900/40 p-5 flex flex-col gap-4"
                   >
                     <div className="min-h-[48px] text-sm font-semibold text-slate-200">
                       {item.title}
                     </div>
-                    <a
-                      href={item.pdf}
-                      download
-                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-linear-to-r from-blue-500 to-purple-500 px-4 py-2 text-sm font-medium text-white hover:opacity-90 transition-opacity"
-                    >
-                      <Download className="h-4 w-4" />
-                      Download PDF
-                    </a>
+                    {typeof item.size === 'number' && item.size > 0 && (
+                      <p className="text-xs text-slate-400">Size: {formatMb(item.size)}</p>
+                    )}
+                    <div className="grid gap-2">
+                      <a
+                        href={viewHref}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center justify-center gap-2 rounded-xl border border-blue-400/40 bg-blue-500/10 px-4 py-2 text-sm font-medium text-blue-100 hover:border-blue-300/70 transition-colors"
+                      >
+                        <FileText className="h-4 w-4" />
+                        View PDF
+                      </a>
+                      <a
+                        href={downloadHref}
+                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-linear-to-r from-blue-500 to-purple-500 px-4 py-2 text-sm font-medium text-white hover:opacity-90 transition-opacity"
+                      >
+                        <Download className="h-4 w-4" />
+                        Download PDF
+                      </a>
+                    </div>
                   </div>
-                ))}
+                )})}
               </div>
             </section>
           )))}

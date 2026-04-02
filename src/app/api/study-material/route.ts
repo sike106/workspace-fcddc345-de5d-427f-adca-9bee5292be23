@@ -1,87 +1,65 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import path from 'path'
-import fs from 'fs/promises'
+import { ListObjectsV2Command } from '@aws-sdk/client-s3'
+import { withAuth } from '@/lib/auth'
+import { db } from '@/lib/db'
+import { getR2Bucket, getR2Client } from '@/lib/r2'
+import { MATERIAL_PREFIX, parseMaterialKey } from '@/lib/study-material'
 
 export const revalidate = 0
-
-const CLASS_DIRS = [
-  { id: 'class-11', label: 'Class 11' },
-  { id: 'class-12', label: 'Class 12' },
-  { id: 'jee', label: 'JEE' }
-] as const
-
-const SUBJECT_DIRS = {
-  Physics: 'physics',
-  Chemistry: 'chemistry',
-  Mathematics: 'mathematics'
-} as const
-
-type Subject = keyof typeof SUBJECT_DIRS
-type ClassId = typeof CLASS_DIRS[number]['id']
+export const runtime = 'nodejs'
 
 type MaterialItem = {
   title: string
-  subject: Subject
-  pdf: string
-  classId: ClassId
+  subject: 'Physics' | 'Chemistry' | 'Mathematics'
+  key: string
+  classId: 'class-11' | 'class-12' | 'jee'
+  size: number
 }
 
-function toTitleCase(value: string) {
-  return value
-    .replace(/\.[^/.]+$/, '')
-    .replace(/[-_]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .replace(/\b\w/g, (char) => char.toUpperCase())
-}
+export async function GET(request: NextRequest) {
+  return withAuth(request, async (user) => {
+    const userState = await db.user.findUnique({
+      where: { id: user.userId },
+      select: { isGuest: true },
+    })
 
-async function listPdfFiles(dir: string) {
-  try {
-    const entries = await fs.readdir(dir, { withFileTypes: true })
-    return entries
-      .filter((entry) => entry.isFile())
-      .map((entry) => entry.name)
-      .filter((name) => name.toLowerCase().endsWith('.pdf'))
-  } catch {
-    return []
-  }
-}
-
-async function readTitleMeta(dir: string, fileName: string) {
-  try {
-    const baseName = path.parse(fileName).name
-    const metaPath = path.join(dir, `${baseName}.json`)
-    const raw = await fs.readFile(metaPath, 'utf-8')
-    const parsed = JSON.parse(raw)
-    if (parsed && typeof parsed.title === 'string' && parsed.title.trim()) {
-      return parsed.title.trim()
+    if (!userState || userState.isGuest) {
+      return NextResponse.json(
+        { error: 'Login required to access study material.' },
+        { status: 403 }
+      )
     }
-    return null
-  } catch {
-    return null
-  }
-}
 
-export async function GET(_request: NextRequest) {
-  const baseDir = path.join(process.cwd(), 'public', 'study-material')
-  const items: MaterialItem[] = []
+    const client = getR2Client()
+    const bucket = getR2Bucket()
+    const items: MaterialItem[] = []
+    let continuationToken: string | undefined
 
-  for (const classDir of CLASS_DIRS) {
-    for (const [subject, subjectDir] of Object.entries(SUBJECT_DIRS) as [Subject, string][]) {
-      const fullPath = path.join(baseDir, classDir.id, subjectDir)
-      const files = await listPdfFiles(fullPath)
+    do {
+      const result = await client.send(
+        new ListObjectsV2Command({
+          Bucket: bucket,
+          Prefix: `${MATERIAL_PREFIX}/`,
+          ContinuationToken: continuationToken,
+        })
+      )
 
-      for (const file of files) {
-        const metaTitle = await readTitleMeta(fullPath, file)
+      for (const entry of result.Contents ?? []) {
+        if (!entry.Key) continue
+        const parsed = parseMaterialKey(entry.Key)
+        if (!parsed) continue
         items.push({
-          title: metaTitle || toTitleCase(file),
-          subject,
-          classId: classDir.id,
-          pdf: `/study-material/${classDir.id}/${subjectDir}/${file}`
+          title: parsed.title,
+          subject: parsed.subject,
+          classId: parsed.classId,
+          key: parsed.key,
+          size: entry.Size ?? 0,
         })
       }
-    }
-  }
 
-  return NextResponse.json({ items })
+      continuationToken = result.IsTruncated ? result.NextContinuationToken : undefined
+    } while (continuationToken)
+
+    return NextResponse.json({ items })
+  })
 }

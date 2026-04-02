@@ -46,6 +46,9 @@ dev.log
 test
 prompt
 
+# Uploaded study material PDFs (kept in R2, not git)
+/public/study-material/
+
 server.log
 # Skills directory
 /skills/
