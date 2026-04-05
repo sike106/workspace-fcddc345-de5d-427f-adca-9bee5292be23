@@ -3,7 +3,7 @@ import { withRole } from '@/lib/auth'
 import { getTeacherAnalytics } from '@/lib/analytics'
 
 export async function GET(request: NextRequest) {
-  return withRole(request, ['teacher', 'admin'], async (user) => {
+  return withRole(request, ['admin'], async (user) => {
     try {
       const analytics = await getTeacherAnalytics(user.userId)
       

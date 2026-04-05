@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect, useCallback, useMemo, useRef, type FormEvent, type ChangeEvent, type UIEvent } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -259,8 +259,53 @@ interface AccountPreferences {
 
 const GUEST_DEVICE_STORAGE_KEY = 'jee_guest_device_id_v1'
 const VIEW_STORAGE_KEY = 'jee_view_v1'
+const VIEW_QUERY_KEY = 'view'
 const MAX_AVATAR_UPLOAD_BYTES = 1024 * 1024
 const ALLOWED_AVATAR_MIME_TYPES = new Set(['image/jpeg', 'image/jpg', 'image/png'])
+
+const VIEW_TO_QUERY: Record<View, string> = {
+  auth: 'auth',
+  dashboard: 'dash',
+  'study-material': 'study',
+  account: 'account',
+  revision: 'revision',
+  pyqs: 'pyqs',
+  mock: 'mock',
+  analytics: 'analytics',
+  teacher: 'admin',
+  'mock-test': 'mock-test',
+  'ai-tutor': 'ai',
+  doubts: 'doubts',
+  ideas: 'ideas'
+}
+
+const QUERY_TO_VIEW: Record<string, View> = {
+  auth: 'auth',
+  dash: 'dashboard',
+  dashboard: 'dashboard',
+  study: 'study-material',
+  'study-material': 'study-material',
+  account: 'account',
+  revision: 'revision',
+  pyqs: 'pyqs',
+  mock: 'mock',
+  analytics: 'analytics',
+  admin: 'teacher',
+  'mock-test': 'mock-test',
+  'ai-tutor': 'ai-tutor',
+  ai: 'ai-tutor',
+  doubts: 'doubts',
+  ideas: 'ideas'
+}
+
+function resolveViewFromQuery(value: string | null, isStaff: boolean): View | null {
+  if (!value) return null
+  const normalized = value.trim().toLowerCase()
+  const view = QUERY_TO_VIEW[normalized]
+  if (!view || view === 'auth') return null
+  if (view === 'teacher' && !isStaff) return null
+  return view
+}
 
 function getGuestAiUpgradeMessage(err: any, fallback: string): string {
   const code = typeof err?.code === 'string' ? err.code : ''
@@ -712,7 +757,7 @@ const SUBJECTS = {
   Physics: [
     'Class 11: Units and Measurements (units, dimensional analysis, measurement errors)',
     'Class 11: Kinematics (1D/2D motion, projectile, uniform circular motion)',
-    'Class 11: Laws of Motion (Newton’s laws, friction, circular motion dynamics)',
+    'Class 11: Laws of Motion (Newtonâ€™s laws, friction, circular motion dynamics)',
     'Class 11: Work, Energy, and Power (work-energy theorem, PE/KE, power)',
     'Class 11: System of Particles and Rotational Motion (COM, torque, angular momentum)',
     'Class 11: Gravitation (universal law, potential energy, satellite motion)',
@@ -720,10 +765,10 @@ const SUBJECTS = {
     'Class 11: Thermodynamics (laws, heat engines, entropy)',
     'Class 11: Perfect Gas and Kinetic Theory (gas laws, kinetic theory, molecular speeds)',
     'Class 11: Oscillations and Waves (SHM, wave motion, sound waves)',
-    'Class 12: Electrostatics (charges, Coulomb’s law, field, potential)',
-    'Class 12: Current Electricity (Ohm’s law, circuits, electrical energy)',
-    'Class 12: Magnetic Effects of Current and Magnetism (Biot–Savart, Ampere’s law, materials)',
-    'Class 12: Electromagnetic Induction and AC (Faraday’s laws, inductance, AC circuits)',
+    'Class 12: Electrostatics (charges, Coulombâ€™s law, field, potential)',
+    'Class 12: Current Electricity (Ohmâ€™s law, circuits, electrical energy)',
+    'Class 12: Magnetic Effects of Current and Magnetism (Biotâ€“Savart, Ampereâ€™s law, materials)',
+    'Class 12: Electromagnetic Induction and AC (Faradayâ€™s laws, inductance, AC circuits)',
     'Class 12: Electromagnetic Waves (properties, applications)',
     'Class 12: Optics (reflection, refraction, lenses, instruments)',
     'Class 12: Dual Nature of Matter and Radiation (photoelectric effect, de Broglie)',
@@ -912,32 +957,38 @@ export default function JEEStudyBuddy() {
 
   // Check auth on mount
   useEffect(() => {
-      api.auth.me()
+    api.auth.me()
       .then(data => {
         if (data?.user) {
           setUser(data.user)
-          const defaultView: View = data.user.role === 'teacher' ? 'teacher' : 'dashboard'
+          const isStaff = data.user.role === 'admin'
+          const defaultView: View = data.user.role === 'admin' ? 'teacher' : 'dashboard'
           let nextView: View = defaultView
 
           if (typeof window !== 'undefined') {
-            const stored = window.sessionStorage.getItem(VIEW_STORAGE_KEY) as View | null
-            const isStaff = data.user.role === 'admin' || data.user.role === 'teacher'
-            const validViews = new Set<View>([
-              'dashboard',
-              'study-material',
-              'account',
-              'revision',
-              'pyqs',
-              'mock',
-              'analytics',
-              'teacher',
-              'mock-test',
-              'ai-tutor',
-              'doubts',
-              'ideas'
-            ])
-            if (stored && validViews.has(stored) && (stored !== 'teacher' || isStaff)) {
-              nextView = stored
+            const url = new URL(window.location.href)
+            const queryView = resolveViewFromQuery(url.searchParams.get(VIEW_QUERY_KEY), isStaff)
+            if (queryView) {
+              nextView = queryView
+            } else {
+              const stored = window.sessionStorage.getItem(VIEW_STORAGE_KEY) as View | null
+              const validViews = new Set<View>([
+                'dashboard',
+                'study-material',
+                'account',
+                'revision',
+                'pyqs',
+                'mock',
+                'analytics',
+                'teacher',
+                'mock-test',
+                'ai-tutor',
+                'doubts',
+                'ideas'
+              ])
+              if (stored && validViews.has(stored) && (stored !== 'teacher' || isStaff)) {
+                nextView = stored
+              }
             }
           }
 
@@ -961,6 +1012,8 @@ export default function JEEStudyBuddy() {
               ? `Account suspended until ${until}.`
               : (err?.message || 'Your account is temporarily suspended.')
           )
+        } else if (err?.code === 'ROLE_DISABLED') {
+          setAuthNotice('Teacher accounts are disabled. Please contact support.')
         } else if (err?.code === 'GUEST_EXPIRED') {
           setAuthNotice('Guest session expired after 10 minutes. Start a new guest session or sign in.')
         } else {
@@ -985,6 +1038,23 @@ export default function JEEStudyBuddy() {
     if (typeof window === 'undefined') return
     if (view === 'auth') return
     window.sessionStorage.setItem(VIEW_STORAGE_KEY, view)
+  }, [view])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const url = new URL(window.location.href)
+    if (view === 'auth') {
+      if (url.searchParams.has(VIEW_QUERY_KEY)) {
+        url.searchParams.delete(VIEW_QUERY_KEY)
+        window.history.replaceState({}, '', url.toString())
+      }
+      return
+    }
+
+    const mapped = VIEW_TO_QUERY[view] ?? view
+    if (url.searchParams.get(VIEW_QUERY_KEY) === mapped) return
+    url.searchParams.set(VIEW_QUERY_KEY, mapped)
+    window.history.replaceState({}, '', url.toString())
   }, [view])
 
   useEffect(() => {
@@ -1045,7 +1115,7 @@ export default function JEEStudyBuddy() {
     if (!user || viewRestoredRef.current) return
 
     const stored = window.sessionStorage.getItem(VIEW_STORAGE_KEY) as View | null
-    const isStaff = user.role === 'teacher' || user.role === 'admin'
+    const isStaff = user.role === 'admin'
     const isAllowed = stored && stored !== 'auth' && (stored !== 'teacher' || isStaff)
 
     if (isAllowed && stored !== view) {
@@ -1193,7 +1263,7 @@ function AuthPage({
         const data = await api.auth.google(idToken)
         if (cancelled) return
         setUser(data.user)
-        setView(data.user.role === 'teacher' ? 'teacher' : 'dashboard')
+        setView(data.user.role === 'admin' ? 'teacher' : 'dashboard')
       } catch (err: any) {
         if (cancelled) return
         console.error('Google login redirect failed:', err)
@@ -1222,7 +1292,7 @@ function AuthPage({
         return
       }
       setUser(data.user)
-      setView(data.user.role === 'teacher' ? 'teacher' : 'dashboard')
+      setView(data.user.role === 'admin' ? 'teacher' : 'dashboard')
     } catch (err: any) {
       setError(err.message)
     } finally {
@@ -1259,7 +1329,7 @@ function AuthPage({
       const idToken = await result.user.getIdToken()
       const data = await api.auth.google(idToken)
       setUser(data.user)
-      setView(data.user.role === 'teacher' ? 'teacher' : 'dashboard')
+      setView(data.user.role === 'admin' ? 'teacher' : 'dashboard')
     } catch (err: any) {
       const code = typeof err?.code === 'string' ? err.code : ''
       if (
@@ -1361,7 +1431,6 @@ function AuthPage({
                     className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:border-blue-500 transition-colors"
                   >
                     <option value="student">Student</option>
-                    <option value="teacher">Teacher</option>
                   </select>
                 </div>
               </>
@@ -1476,7 +1545,7 @@ function MainLayout({
   setSidebarOpen: (open: boolean) => void
   guestTimeLeftMs: number | null
 }) {
-  const isStaff = user?.role === 'teacher' || user?.role === 'admin'
+  const isStaff = user?.role === 'admin'
   const suspendedUntilMs = user?.suspendedUntil ? new Date(user.suspendedUntil).getTime() : null
   const [currentTimeMs, setCurrentTimeMs] = useState(Date.now())
   const [isMobile, setIsMobile] = useState(false)
@@ -1503,7 +1572,7 @@ function MainLayout({
   useEffect(() => {
     if (typeof document === 'undefined') return
 
-    const isStaff = user?.role === 'admin' || user?.role === 'teacher'
+    const isStaff = user?.role === 'admin'
     const head = document.head || document.documentElement
 
     const removeAds = () => {
@@ -3564,7 +3633,7 @@ function Revision({ user }: { user: User | null }) {
                 <div>
                   <p className="text-sm font-medium">{entry.subject} - {entry.chapter}</p>
                   <p className="text-xs text-slate-400">
-                    {entry.examType} • {new Date(entry.updatedAt).toLocaleString()}
+                    {entry.examType} â€¢ {new Date(entry.updatedAt).toLocaleString()}
                   </p>
                 </div>
                 <button
@@ -4389,7 +4458,7 @@ function Practice({ user }: { user: User | null }) {
                     {session.subject || 'All Subjects'}{session.chapter ? ` - ${session.chapter}` : ''}
                   </p>
                   <p className="text-xs text-slate-400">
-                    {session.difficulty || 'All Difficulties'} • {session.questions.length} Qs • {new Date(session.updatedAt).toLocaleString()}
+                    {session.difficulty || 'All Difficulties'} â€¢ {session.questions.length} Qs â€¢ {new Date(session.updatedAt).toLocaleString()}
                   </p>
                 </div>
                 <button
@@ -4520,7 +4589,7 @@ function Practice({ user }: { user: User | null }) {
                     AI Review Monitor
                   </h4>
                   <p className="text-xs text-slate-400">
-                    Attempts: {monitorStats.attempted} • Accuracy: {monitorStats.accuracy}% • Avg Time: {monitorStats.avgTime}s
+                    Attempts: {monitorStats.attempted} â€¢ Accuracy: {monitorStats.accuracy}% â€¢ Avg Time: {monitorStats.avgTime}s
                   </p>
                 </div>
                 {reviewLoading && (
@@ -4679,7 +4748,7 @@ function MockTests({ setView, user }: { setView: (view: View) => void; user: Use
   const [subjectFilter, setSubjectFilter] = useState('')
   const [chapterFilter, setChapterFilter] = useState('')
   const [difficultyFilter, setDifficultyFilter] = useState('')
-  const isStaff = user?.role === 'teacher' || user?.role === 'admin'
+  const isStaff = user?.role === 'admin'
   const [bulkJson, setBulkJson] = useState('')
   const [bulkStatus, setBulkStatus] = useState<string | null>(null)
   const [bulkTemplateStatus, setBulkTemplateStatus] = useState<string | null>(null)
@@ -4835,7 +4904,7 @@ function MockTests({ setView, user }: { setView: (view: View) => void; user: Use
                 <div>
                   <h3 className="font-semibold text-lg">{test.title}</h3>
                   <p className="text-sm text-slate-400">
-                    {[test.subject || 'All Subjects', test.chapter, test.difficulty].filter(Boolean).join(' • ')}
+                    {[test.subject || 'All Subjects', test.chapter, test.difficulty].filter(Boolean).join(' â€¢ ')}
                   </p>
                 </div>
                 {test.attempted && (
@@ -4891,17 +4960,17 @@ function MockTests({ setView, user }: { setView: (view: View) => void; user: Use
             </button>
           </div>
           <div className="text-xs text-slate-400 mb-3 space-y-1">
-            <p>title: test name — required</p>
-            <p>description: short summary — optional</p>
-            <p>testType: full/subject/chapter — required</p>
-            <p>subject: Physics/Chemistry/Mathematics — optional</p>
-            <p>chapter: exact chapter name — optional</p>
-            <p>difficulty: Easy/Medium/Hard — optional</p>
-            <p>duration: minutes (e.g. 180) — required</p>
-            <p>totalMarks: number — required</p>
-            <p>negativeMarking: number — required</p>
-            <p>questionIds: array of question IDs — required</p>
-            <p>instructions: text — optional</p>
+            <p>title: test name â€” required</p>
+            <p>description: short summary â€” optional</p>
+            <p>testType: full/subject/chapter â€” required</p>
+            <p>subject: Physics/Chemistry/Mathematics â€” optional</p>
+            <p>chapter: exact chapter name â€” optional</p>
+            <p>difficulty: Easy/Medium/Hard â€” optional</p>
+            <p>duration: minutes (e.g. 180) â€” required</p>
+            <p>totalMarks: number â€” required</p>
+            <p>negativeMarking: number â€” required</p>
+            <p>questionIds: array of question IDs â€” required</p>
+            <p>instructions: text â€” optional</p>
           </div>
           {bulkTemplateStatus && (
             <p className="text-xs text-slate-400 mb-2">{bulkTemplateStatus}</p>
@@ -5334,7 +5403,7 @@ function MockTestView({ setView, user }: { setView: (view: View) => void; user: 
 
 // PYQs Component
 function PYQs({ user }: { user: User | null }) {
-  const isAdmin = user?.role === 'admin' || user?.role === 'teacher'
+  const isAdmin = user?.role === 'admin'
   const [selectedExam, setSelectedExam] = useState('')
   const [subject, setSubject] = useState('')
   const [chapter, setChapter] = useState('')
@@ -5730,7 +5799,7 @@ function PYQs({ user }: { user: User | null }) {
                 {solveQuestion.pyqYear && (
                   <span className="px-3 py-1 bg-slate-700/50 rounded-full">{solveQuestion.pyqYear}</span>
                 )}
-                <span>{solveQuestion.subject} • {solveQuestion.chapter}</span>
+                <span>{solveQuestion.subject} â€¢ {solveQuestion.chapter}</span>
                 <span>{solveQuestion.difficulty}</span>
                 {checked && (
                   <span className={`px-2 py-1 rounded-full text-xs ${
@@ -6224,17 +6293,17 @@ function PYQs({ user }: { user: User | null }) {
           </div>
           <div className="text-xs text-slate-400 mb-3 space-y-1">
             <p className="text-amber-200">Note: Solution thoda lamba aur easy to understand ho.</p>
-            <p>exam: exact card name (e.g. JEE Main, JEE Advanced) — required</p>
-            <p>year: number (e.g. 2023) — optional</p>
-            <p>subject: Physics/Chemistry/Mathematics — required</p>
-            <p>chapter: exact chapter name from the list — required</p>
-            <p>difficulty: Easy/Medium/Hard — optional (default Medium)</p>
-            <p>question: text/LaTeX — required</p>
-            <p>options: array of strings — optional</p>
-            <p>correctAnswer: 0-based index (0,1,2,3) — required</p>
-            <p>solution: text/LaTeX — optional</p>
-            <p>explanation: text/LaTeX — optional</p>
-            <p>alternateApproach: text/LaTeX — optional (paste Gemini/ChatGPT output)</p>
+            <p>exam: exact card name (e.g. JEE Main, JEE Advanced) â€” required</p>
+            <p>year: number (e.g. 2023) â€” optional</p>
+            <p>subject: Physics/Chemistry/Mathematics â€” required</p>
+            <p>chapter: exact chapter name from the list â€” required</p>
+            <p>difficulty: Easy/Medium/Hard â€” optional (default Medium)</p>
+            <p>question: text/LaTeX â€” required</p>
+            <p>options: array of strings â€” optional</p>
+            <p>correctAnswer: 0-based index (0,1,2,3) â€” required</p>
+            <p>solution: text/LaTeX â€” optional</p>
+            <p>explanation: text/LaTeX â€” optional</p>
+            <p>alternateApproach: text/LaTeX â€” optional (paste Gemini/ChatGPT output)</p>
           </div>
           {bulkTemplateStatus && (
             <p className="text-xs text-slate-400 mb-2">{bulkTemplateStatus}</p>
@@ -6406,7 +6475,7 @@ function Analytics() {
             </div>
             {leaderboard?.userRank && !leaderboard.leaders.some((entry: any) => entry.id === leaderboard.userRank.id) && (
               <div className="mt-4 text-sm text-slate-300">
-                Your Rank: <span className="font-medium">#{leaderboard.userRank.rank}</span> • Accuracy {leaderboard.userRank.accuracy}% • Questions {leaderboard.userRank.questionsSolved}
+                Your Rank: <span className="font-medium">#{leaderboard.userRank.rank}</span> â€¢ Accuracy {leaderboard.userRank.accuracy}% â€¢ Questions {leaderboard.userRank.questionsSolved}
               </div>
             )}
           </>
@@ -7019,7 +7088,7 @@ function IdeaChat({ user }: { user: User | null }) {
           </button>
         </div>
         <p className="text-sm text-slate-400 mt-1">
-          Share your product ideas, feature requests, or improvements. We’ll review them.
+          Share your product ideas, feature requests, or improvements. Weâ€™ll review them.
         </p>
 
         {error && (
@@ -8694,8 +8763,8 @@ function TeacherDashboard({ user }: { user: User | null }) {
                             >
                               <div className="min-w-0">
                                 <p className="text-xs text-slate-400">
-                                  {q.subject} • {q.chapter}
-                                  {q.pyqYear ? ` • ${q.pyqYear}` : ''}
+                                  {q.subject} â€¢ {q.chapter}
+                                  {q.pyqYear ? ` â€¢ ${q.pyqYear}` : ''}
                                 </p>
                                 <div className="text-sm text-slate-200 line-clamp-2">
                                   <MathText text={q.question} />
@@ -9419,5 +9488,6 @@ function parseQuestionOptions(options: string | null | undefined): string[] {
     return []
   }
 }
+
 
 

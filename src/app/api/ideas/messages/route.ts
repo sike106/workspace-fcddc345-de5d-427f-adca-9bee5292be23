@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
   return withAuth(request, async (sessionUser) => {
     const { searchParams } = new URL(request.url)
     const requestedUserId = (searchParams.get('userId') || '').trim()
-    const isStaff = sessionUser.role === 'admin' || sessionUser.role === 'teacher'
+  const isStaff = sessionUser.role === 'admin'
     const targetUserId = isStaff && requestedUserId ? requestedUserId : sessionUser.userId
 
     if (!targetUserId) {
@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => ({}))
     const message = typeof body?.message === 'string' ? body.message.trim() : ''
     const requestedUserId = typeof body?.userId === 'string' ? body.userId.trim() : ''
-    const isStaff = sessionUser.role === 'admin' || sessionUser.role === 'teacher'
+  const isStaff = sessionUser.role === 'admin'
     const targetUserId = isStaff && requestedUserId ? requestedUserId : sessionUser.userId
 
     if (!message) {

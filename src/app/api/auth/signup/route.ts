@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
     const hashedPassword = await hashPassword(password)
     // Create user
     const allowlistedAdmin = isAdminAllowlisted(normalizedEmail)
-    const finalRole = allowlistedAdmin ? 'admin' : (role === 'teacher' ? 'teacher' : 'student')
+    const finalRole = allowlistedAdmin ? 'admin' : 'student'
 
     const user = await db.user.create({
       data: {

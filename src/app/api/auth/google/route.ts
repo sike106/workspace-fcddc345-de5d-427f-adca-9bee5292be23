@@ -101,6 +101,13 @@ export async function POST(request: NextRequest) {
       })
     }
 
+    if (user.role === 'teacher') {
+      return NextResponse.json(
+        { error: 'Teacher accounts are disabled. Please contact support.', code: 'ROLE_DISABLED' },
+        { status: 403 }
+      )
+    }
+
     if (guestId && guestId !== user.id) {
       try {
         await syncGuestData(guestId, user.id)

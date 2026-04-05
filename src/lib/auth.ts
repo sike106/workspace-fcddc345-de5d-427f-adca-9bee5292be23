@@ -390,6 +390,15 @@ export async function withAuth(
     )
   }
 
+  if (payload.role === 'teacher') {
+    const response = NextResponse.json(
+      { error: 'Teacher accounts are disabled. Please contact support.', code: 'ROLE_DISABLED' },
+      { status: 403 }
+    )
+    await clearAuthCookie(response)
+    return response
+  }
+
   const maxAttempts = 3
   let userState: {
     id: string

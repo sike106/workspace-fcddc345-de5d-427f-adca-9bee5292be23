@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  return withRole(request, ['admin', 'teacher'], async (user) => {
+  return withRole(request, ['admin'], async (user) => {
     try {
       const body = await request.json()
       const tests = Array.isArray(body?.tests) ? body.tests : null

@@ -4,7 +4,7 @@ import { db } from '@/lib/db'
 
 // Get all questions (for teacher management)
 export async function GET(request: NextRequest) {
-  return withRole(request, ['teacher', 'admin'], async () => {
+  return withRole(request, ['admin'], async () => {
     const { searchParams } = new URL(request.url)
     const subject = (searchParams.get('subject') || '').trim()
     const exam = (searchParams.get('exam') || '').trim()
@@ -94,7 +94,7 @@ export async function DELETE(request: NextRequest) {
 
 // Create new question
 export async function POST(request: NextRequest) {
-  return withRole(request, ['teacher', 'admin'], async (user) => {
+  return withRole(request, ['admin'], async (user) => {
     try {
       const body = await request.json()
       const {

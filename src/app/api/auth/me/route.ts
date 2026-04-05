@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { withAuth, getUserNickname, resolveUserAvatar } from '@/lib/auth'
+import { withAuth, getUserNickname, resolveUserAvatar, clearAuthCookie } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { GUEST_SESSION_MAX_AGE_SECONDS } from '@/lib/guest-config'
 
@@ -31,6 +31,15 @@ export async function GET(request: NextRequest) {
           { error: 'User not found', code: 'NOT_FOUND' },
           { status: 404 }
         )
+      }
+
+      if (fullUser.role === 'teacher') {
+        const response = NextResponse.json(
+          { error: 'Teacher accounts are disabled. Please contact support.', code: 'ROLE_DISABLED' },
+          { status: 403 }
+        )
+        await clearAuthCookie(response)
+        return response
       }
       
       const guestExpiresAt =

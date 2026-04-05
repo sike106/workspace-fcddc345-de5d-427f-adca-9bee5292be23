@@ -118,7 +118,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       )
     }
 
-    const authorType = user.role === 'admin' || user.role === 'teacher' ? 'admin' : 'user'
+    const authorType = user.role === 'admin' ? 'admin' : 'user'
 
     const reply = await db.doubtReply.create({
       data: {
