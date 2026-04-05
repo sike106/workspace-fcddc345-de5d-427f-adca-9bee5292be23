@@ -1042,6 +1042,23 @@ export default function JEEStudyBuddy() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return
+    if (!user || view === 'auth') return
+
+    const handleUrlChange = () => {
+      const isStaff = user.role === 'admin'
+      const url = new URL(window.location.href)
+      const queryView = resolveViewFromQuery(url.searchParams.get(VIEW_QUERY_KEY), isStaff)
+      if (queryView && queryView !== view) {
+        setView(queryView)
+      }
+    }
+
+    window.addEventListener('popstate', handleUrlChange)
+    return () => window.removeEventListener('popstate', handleUrlChange)
+  }, [user, view])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
     const url = new URL(window.location.href)
     if (view === 'auth') {
       if (url.searchParams.has(VIEW_QUERY_KEY)) {
