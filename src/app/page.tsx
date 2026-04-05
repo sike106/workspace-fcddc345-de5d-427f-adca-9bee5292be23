@@ -1059,6 +1059,7 @@ export default function JEEStudyBuddy() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return
+    if (!user) return
     const url = new URL(window.location.href)
     if (view === 'auth') {
       if (url.searchParams.has(VIEW_QUERY_KEY)) {
