@@ -316,8 +316,10 @@ async function readOpenAICompatibleStream(
   }
 
   // If the model returned everything in reasoning and nothing in content,
-  // use the reasoning as the main response (handles reasoning models on OpenRouter)
+  // emit reasoning as main content (handles reasoning models like liquid/lfm on OpenRouter
+  // that put the final answer in reasoning_content instead of content)
   if (!content && thinking) {
+    onDelta(thinking)
     return { content: thinking, thinking: '', tokens }
   }
 
@@ -675,10 +677,17 @@ async function callOpenRouterStream(
     throw new Error(`OpenRouter request failed (${response.status}): ${extractApiError(payload)}`)
   }
 
-  const streamed = await readOpenAICompatibleStream(response, onDelta, onThinking)
+  const streamed = await readOpenAICompatibleStream(
+    response,
+    onDelta,
+    // Route reasoning chunks to main content as well: models like
+    // liquid/lfm-2.5-2.6b:free put the final answer in reasoning_content,
+    // so without this everything lands in the thinking box and content stays empty.
+    (reasoning) => onDelta(reasoning)
+  )
   return {
-    content: streamed.content,
-    thinking: streamed.thinking,
+    content: streamed.content || streamed.thinking,
+    thinking: '',
     tokens: streamed.tokens,
     modelUsed: `openrouter:${selectedModel}`,
   }
