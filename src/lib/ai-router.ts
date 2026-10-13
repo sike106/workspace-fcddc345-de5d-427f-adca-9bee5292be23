@@ -88,11 +88,11 @@ function readPositiveInt(value: string | undefined, fallback: number): number {
   return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback
 }
 
-const AI_MAX_TOKENS_SHORT = readPositiveInt(process.env.AI_MAX_TOKENS_SHORT, 700)
+const AI_MAX_TOKENS_SHORT = readPositiveInt(process.env.AI_MAX_TOKENS_SHORT, 4000)
 const AI_MAX_TOKENS_LONG = readPositiveInt(process.env.AI_MAX_TOKENS_LONG, 8192)
 const AI_MAX_TOKENS_NOTES = readPositiveInt(process.env.AI_MAX_TOKENS_NOTES, 8192)
-const AI_MAX_TOKENS_HINT = readPositiveInt(process.env.AI_MAX_TOKENS_HINT, 1024)
-const AI_MAX_TOKENS_CHAT = Math.min(readPositiveInt(process.env.AI_MAX_TOKENS_CHAT, 700), AI_MAX_TOKENS_SHORT)
+const AI_MAX_TOKENS_HINT = readPositiveInt(process.env.AI_MAX_TOKENS_HINT, 2048)
+const AI_MAX_TOKENS_CHAT = Math.min(readPositiveInt(process.env.AI_MAX_TOKENS_CHAT, 4000), AI_MAX_TOKENS_SHORT)
 const AI_HISTORY_WINDOW = readPositiveInt(process.env.AI_HISTORY_WINDOW, 10)
 
 const providerStats: Record<Provider, { lastSuccessAt: number | null; lastErrorAt: number | null; lastError: string | null; lastModelUsed: string | null }> = {
