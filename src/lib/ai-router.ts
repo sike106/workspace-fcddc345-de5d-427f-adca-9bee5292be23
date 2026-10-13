@@ -315,6 +315,12 @@ async function readOpenAICompatibleStream(
     handleLine(buffer)
   }
 
+  // If the model returned everything in reasoning and nothing in content,
+  // use the reasoning as the main response (handles reasoning models on OpenRouter)
+  if (!content && thinking) {
+    return { content: thinking, thinking: '', tokens }
+  }
+
   return { content, thinking, tokens }
 }
 
@@ -353,9 +359,17 @@ async function callOpenRouter(options: ChatOptions): Promise<{ content: string; 
     throw new Error(`OpenRouter request failed (${response.status}): ${extractApiError(payload)}`)
   }
 
-  const content = payload?.choices?.[0]?.message?.content
+  let content = payload?.choices?.[0]?.message?.content
   if (!content || typeof content !== 'string') {
-    throw new Error('OpenRouter response did not contain assistant content')
+    // Fallback: some reasoning models return everything in reasoning_content
+    const reasoning = payload?.choices?.[0]?.message?.reasoning_content
+      || payload?.choices?.[0]?.message?.reasoning
+      || ''
+    if (reasoning) {
+      content = reasoning
+    } else {
+      throw new Error('OpenRouter response did not contain assistant content')
+    }
   }
 
   return {
